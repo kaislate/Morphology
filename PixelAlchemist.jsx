@@ -359,12 +359,12 @@ const FSlider=({value,min,max,step=0.01,onChange,color='#fff',enabled=true,defau
     style={{background:`linear-gradient(to right,${fill} ${pct}%,#3f3f46 ${pct}%)`,'--tc':fill}}/>;
 };
 
+const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
 // BracketSlider — same visual as FSlider's LFO bracket mode but standalone.
 // Used by Margin card in A|B split mode. Orange handles, no value labels.
 const BracketSlider=({lo,hi,onLoChange,onHiChange,color='#f59e0b'})=>{
   const trackRef=useRef(null);
   const dragRef=useRef(null);
-  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
   // Callback refs — same pattern as FSliderLFO. Prevents stale closures when parent
   // passes inline lambdas, and avoids re-registering listeners on every render.
   const onLoRef=useRef(onLoChange);
@@ -402,8 +402,7 @@ const BracketSlider=({lo,hi,onLoChange,onHiChange,color='#f59e0b'})=>{
 
 const RangeSlider=({lo,hi,onLoChange,onHiChange,color='#06b6d4',enabled=true})=>{
   const trackRef=useRef(null);
-  const drag=useRef(null);
-  const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
+  const dragRef=useRef(null);
   // Callback refs — same pattern as FSliderLFO and BracketSlider.
   const onLoRef=useRef(onLoChange);
   const onHiRef=useRef(onHiChange);
@@ -413,11 +412,11 @@ const RangeSlider=({lo,hi,onLoChange,onHiChange,color='#06b6d4',enabled=true})=>
   useEffect(()=>{onHiRef.current=onHiChange;},[onHiChange]);
   useEffect(()=>{loRef.current=lo;},[lo]);
   useEffect(()=>{hiRef.current=hi;},[hi]);
-  const onMouseDown=(handle,e)=>{e.preventDefault();drag.current=handle;};
+  const onMouseDown=(handle,e)=>{e.preventDefault();e.stopPropagation();dragRef.current=handle;};
   useEffect(()=>{
     const getFrac=e=>{if(!trackRef.current)return 0;const rect=trackRef.current.getBoundingClientRect();return clamp((e.clientX-rect.left)/rect.width,0,1);};
-    const mm=e=>{if(!drag.current)return;const f=getFrac(e);if(drag.current==='lo')onLoRef.current(clamp(f,0,hiRef.current-0.02));else onHiRef.current(clamp(f,loRef.current+0.02,1));};
-    const mu=()=>{drag.current=null;};
+    const mm=e=>{if(!dragRef.current||!trackRef.current)return;const f=getFrac(e);if(dragRef.current==='lo')onLoRef.current(clamp(f,0,hiRef.current-0.02));else onHiRef.current(clamp(f,loRef.current+0.02,1));};
+    const mu=()=>{dragRef.current=null;};
     window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu);
     return()=>{window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu);};
   },[]);
