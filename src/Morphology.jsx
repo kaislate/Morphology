@@ -2621,7 +2621,7 @@ export default function Morphology(){
 
   // Field module — vector field shaping particle trajectories pre-sym
   const [isField,setIsField]=useState(false);
-  const [fieldMode,setFieldMode]=useState(0); // 0=Gravity Well 1=Repulsor 2=Dipole 3=Attractor Web 4=Flow Field 5=Orbital
+  const [fieldMode,setFieldMode]=useState(0); // 0=Aurora 1=Plasma 2=Lattice 3=Interference 4=Wind 5=Magrev 6=Poles
   const [fieldAmt,setFieldAmt]=useState(0.5);
   const [fieldX,setFieldX]=useState(0.5); // 0-1 normalized well position X
   const [fieldY,setFieldY]=useState(0.5); // 0-1 normalized well position Y
@@ -3656,12 +3656,12 @@ export default function Morphology(){
         }else if(fm2===6){// Poles — 4 rotating alternating-polarity field sources
           const ph=t*0.25,sep=DIMENSION*0.25,soft=DIMENSION*0.1;
           let sumFx=0,sumFy=0;
-          for(let i=0;i<4;i++){
-            const ang=ph+i*Math.PI*0.5;
+          for(let pi=0;pi<4;pi++){
+            const ang=ph+pi*Math.PI*0.5;
             const px=fwx+Math.cos(ang)*sep,py=fwy+Math.sin(ang)*sep;
             const dx=curX-px,dy=curY-py;
             const d=Math.sqrt(dx*dx+dy*dy)+soft;
-            const sign=(i%2===0)?1:-1;
+            const sign=(pi%2===0)?1:-1;
             sumFx+=sign*dx/d;sumFy+=sign*dy/d;
           }
           const th=Math.atan2(sumFy,sumFx)+Math.sin(t*0.25)*0.3;
@@ -6023,7 +6023,7 @@ export default function Morphology(){
             onToggleCollapse={()=>toggleCollapse('field')}
             label="Field" active={isField} onToggle={()=>setIsField(v=>!v)}
             color="#22c55e" bgColor="#052e16" borderColor={isField?"#22c55e":"#27272a"} glowColor="#22c55e"
-            modeKey={fieldMode} modeLabel={['Gravity','Repulsor','Dipole','Attract','Wind','Orbit'][fieldMode]||'—'} modeCount={6} onModeChange={v=>setFieldMode(v)}
+            modeKey={fieldMode} modeLabel={['Aurora','Plasma','Lattice','Interfere','Wind','Magrev','Poles'][fieldMode]||'—'} modeCount={7} onModeChange={v=>setFieldMode(v)}
             frontBottomContent={<>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
                 <span style={{fontSize:6,fontWeight:900,textTransform:'uppercase',color:'#6b7280'}}>Amount</span>
@@ -6034,7 +6034,7 @@ export default function Morphology(){
             backContent={<>
               <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.15em',color:'#52525b',marginBottom:4}}>Mode</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:4,marginBottom:6}}>
-                {[['Gravity',0],['Repulsor',1],['Dipole',2],['Attract',3],['Wind',4],['Orbit',5]].map(([lbl,id])=>(
+                {[['Aurora',0],['Plasma',1],['Lattice',2],['Interfere',3],['Wind',4],['Magrev',5],['Poles',6]].map(([lbl,id])=>(
                   <button key={id} onClick={()=>setFieldMode(id)} style={{padding:'5px 0',borderRadius:6,border:`1px solid ${fieldMode===id?(isField?'#22c55e':'#22c55e44'):'#3f3f46'}`,background:fieldMode===id?(isField?'rgba(34,197,94,0.15)':'rgba(34,197,94,0.06)'):'rgba(0,0,0,0.3)',color:fieldMode===id?(isField?'#86efac':'#22c55e'):'#71717a',fontSize:7,fontWeight:900,textTransform:'uppercase',cursor:'pointer'}}>{lbl}</button>
                 ))}
               </div>
