@@ -2448,7 +2448,7 @@ const DraggableEngineGrid=({order,setOrder,renderCard})=>{
 };
 
 
-export default function PixelAlchemist(){
+export default function Morphology(){
   const [isPortrait,setIsPortrait]=useState(false);
   const [collapsed,setCollapsed]=useState({transform:true,symmetry:true,glyph:true,entropy:true,prismatic:true,flux:true,glitch:true,retro:true,warp:true,field:true,ascii:true});
   const toggleCollapse=id=>setCollapsed(c=>({...c,[id]:!c[id]}));
@@ -3016,8 +3016,8 @@ export default function PixelAlchemist(){
               popoutWindowRef.current.document.body.style.background=bg;
           }
         }
-        rafId=requestAnimationFrame(sync);
       }
+      rafId=requestAnimationFrame(sync);
     };
     rafId=requestAnimationFrame(sync);
     return()=>{cancelAnimationFrame(rafId);if(popoutWindowRef.current&&!popoutWindowRef.current.closed)popoutWindowRef.current.close();};

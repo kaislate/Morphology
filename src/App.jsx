@@ -1,5 +1,5 @@
-import PixelAlchemist from './PixelAlchemist'
+import Morphology from './Morphology'
 
 export default function App() {
-  return <PixelAlchemist />
+  return <Morphology />
 }
