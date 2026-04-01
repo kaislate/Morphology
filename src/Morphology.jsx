@@ -3623,39 +3623,40 @@ export default function Morphology(){
         const fcx=curX-fwx, fcy=curY-fwy;
         const fdist=Math.sqrt(fcx*fcx+fcy*fcy)||1;
         const fang=Math.atan2(fcy,fcx);
-        if(fm2===0){// Gravity Well — pull toward well point
-          const pull=fMag/(1+fdist*0.012);
-          curX-=(fcx/fdist)*pull*0.18;curY-=(fcy/fdist)*pull*0.18;
-        }else if(fm2===1){// Repulsor — push away from well
-          const push=fMag/(1+fdist*0.015);
-          curX+=(fcx/fdist)*push*0.15;curY+=(fcy/fdist)*push*0.15;
-        }else if(fm2===2){// Magnetic Dipole — north/south poles
+        if(fm2===0){// Gravity Well — spiral inward (radial pull + CW tangential)
+          const str=fMag*0.16;
+          curX-=(fcx/fdist)*str;curY-=(fcy/fdist)*str;
+          curX+=(-fcy/fdist)*str*0.5;curY+=(fcx/fdist)*str*0.5;
+        }else if(fm2===1){// Repulsor — expand outward with CCW counter-swirl
+          const str=fMag*0.16;
+          curX+=(fcx/fdist)*str;curY+=(fcy/fdist)*str;
+          curX+=(fcy/fdist)*str*0.35;curY+=(-fcx/fdist)*str*0.35;
+        }else if(fm2===2){// Magnetic Dipole — south pole attracts, north pole repels
           const pole1x=DIMENSION*0.35,pole1y=DIMENSION/2,pole2x=DIMENSION*0.65,pole2y=DIMENSION/2;
           const d1x=curX-pole1x,d1y=curY-pole1y,d1=Math.sqrt(d1x*d1x+d1y*d1y)||1;
           const d2x=curX-pole2x,d2y=curY-pole2y,d2=Math.sqrt(d2x*d2x+d2y*d2y)||1;
-          const f1=fMag/(1+d1*0.012),f2=fMag/(1+d2*0.012);
-          curX-=(d1x/d1)*f1*0.12;curY-=(d1y/d1)*f1*0.12;
-          curX+=(d2x/d2)*f2*0.12;curY+=(d2y/d2)*f2*0.12;
-        }else if(fm2===3){// Attractor Web — grid of wells
-          const gSize=DIMENSION/4;
-          let ax=0,ay=0;
-          for(let wx2=0;wx2<4;wx2++)for(let wy2=0;wy2<4;wy2++){
+          const f1=Math.min(fMag*0.18,fMag*0.28/(1+d1*0.007));
+          const f2=Math.min(fMag*0.18,fMag*0.28/(1+d2*0.007));
+          curX-=(d1x/d1)*f1;curY-=(d1y/d1)*f1;
+          curX+=(d2x/d2)*f2;curY+=(d2y/d2)*f2;
+        }else if(fm2===3){// Attractor Web — 3×3 grid of wells, strength-capped
+          const gSize=DIMENSION/3;let ax=0,ay=0;
+          for(let wx2=0;wx2<3;wx2++)for(let wy2=0;wy2<3;wy2++){
             const px2=gSize*(wx2+0.5),py2=gSize*(wy2+0.5);
-            const dx2=curX-px2,dy2=curY-py2,dist2=Math.sqrt(dx2*dx2+dy2*dy2)||1;
-            const f=fMag*0.3/(1+dist2*0.02);ax-=(dx2/dist2)*f;ay-=(dy2/dist2)*f;
+            const dx2=curX-px2,dy2=curY-py2,d2=Math.sqrt(dx2*dx2+dy2*dy2)||1;
+            const f=fMag*0.38/(1+d2*0.008);ax-=(dx2/d2)*f;ay-=(dy2/d2)*f;
           }
-          curX+=ax*0.08;curY+=ay*0.08;
+          const aLen=Math.sqrt(ax*ax+ay*ay)||1;const cap=fMag*0.28;
+          const sc=Math.min(1,cap/aLen);curX+=ax*sc;curY+=ay*sc;
         }else if(fm2===4){// Flow Field — smooth Perlin-like vector field
           const nx2=curX*0.008+t*0.4,ny2=curY*0.008+t*0.3;
           const flow=Math.sin(nx2*2.1+ny2*1.7)*Math.PI*2;
           curX+=Math.cos(flow)*fMag*0.12;curY+=Math.sin(flow)*fMag*0.12;
-        }else if(fm2===5){// Orbital — particles orbit well at fixed radius
-          const targetR=60+fMag*0.8;
-          const orbitSpeed=0.04*(rc.fieldAmt||0.5);
-          const curAng=Math.atan2(fcy,fcx);
-          const newAng=curAng+orbitSpeed;
-          const curR=fdist;const pullR=(targetR-curR)*0.08;
-          curX=fwx+Math.cos(newAng)*(curR+pullR);curY=fwy+Math.sin(newAng)*(curR+pullR);
+        }else if(fm2===5){// Orbital — converge to ring radius then circle well
+          const targetR=DIMENSION*0.28+fMag*0.4;
+          const newAng=fang+fMag*0.0006;
+          const pullR=(targetR-fdist)*0.14;
+          curX=fwx+Math.cos(newAng)*(fdist+pullR);curY=fwy+Math.sin(newAng)*(fdist+pullR);
         }
       }
 
