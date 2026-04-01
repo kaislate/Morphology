@@ -199,7 +199,7 @@ function buildTextMask(phrase, opts={}) {
   let sz=targetSz;
   // Letter spacing: CSS letterSpacing in px
   const lsPx=Math.round((spacing-0.5)*20); // -10 to +10px
-  ctx.letterSpacing=`${lsPx}px`;
+  if('letterSpacing' in ctx) ctx.letterSpacing=`${lsPx}px`;
   while(sz>8){ctx.font=`900 ${sz}px monospace`;if(ctx.measureText(phrase).width<DIMENSION-8)break;sz-=2;}
   ctx.textAlign='center'; ctx.textBaseline='middle';
   if(outline){
