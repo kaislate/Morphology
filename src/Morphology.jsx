@@ -2614,7 +2614,7 @@ export default function Morphology(){
 
   // Warp module — pre-sym spatial lens distortion on rawCanvas
   const [isWarp,setIsWarp]=useState(false);
-  const [warpMode,setWarpMode]=useState(0); // 0=Bulge 1=Pinch 2=Ripple 3=Twist 4=Mirror Fold 5=Kaleid Seed
+  const [warpMode,setWarpMode]=useState(0); // 0=Lens 1=Pinch 2=Ripple 3=Swirl 4=Mirror 5=Kaleid
   const [warpAmt,setWarpAmt]=useState(0.5);
   const [warpRate,setWarpRate]=useState(0.5);
   const [warpResetFlash,setWarpResetFlash]=useState(false);
@@ -5976,7 +5976,7 @@ export default function Morphology(){
             onToggleCollapse={()=>toggleCollapse('warp')}
             label="Warp" active={isWarp} onToggle={()=>setIsWarp(v=>!v)}
             color="#06b6d4" bgColor="#083344" borderColor={isWarp?"#06b6d4":"#27272a"} glowColor="#06b6d4"
-            modeKey={warpMode} modeLabel={['Lens','Bulge','Pinch','Swirl','Wave','Ripple'][warpMode]||'—'} modeCount={6} onModeChange={v=>setWarpMode(v)}
+            modeKey={warpMode} modeLabel={['Lens','Pinch','Ripple','Swirl','Mirror','Kaleid'][warpMode]||'—'} modeCount={6} onModeChange={v=>setWarpMode(v)}
             frontBottomContent={<>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
                 <span style={{fontSize:6,fontWeight:900,textTransform:'uppercase',color:'#6b7280'}}>Amount</span>
@@ -5987,7 +5987,7 @@ export default function Morphology(){
             backContent={<>
               <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.15em',color:'#52525b',marginBottom:4}}>Mode</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:4,marginBottom:6}}>
-                {[['Lens',0],['Bulge',1],['Pinch',2],['Swirl',3],['Wave',4],['Ripple',5]].map(([lbl,id])=>(
+                {[['Lens',0],['Pinch',1],['Ripple',2],['Swirl',3],['Mirror',4],['Kaleid',5]].map(([lbl,id])=>(
                   <button key={id} onClick={()=>setWarpMode(id)} style={{padding:'5px 0',borderRadius:6,border:`1px solid ${warpMode===id?(isWarp?'#06b6d4':'#06b6d444'):'#3f3f46'}`,background:warpMode===id?(isWarp?'rgba(6,182,212,0.15)':'rgba(6,182,212,0.06)'):'rgba(0,0,0,0.3)',color:warpMode===id?(isWarp?'#67e8f9':'#06b6d4'):'#71717a',fontSize:7,fontWeight:900,textTransform:'uppercase',cursor:'pointer'}}>{lbl}</button>
                 ))}
               </div>
@@ -6013,7 +6013,7 @@ export default function Morphology(){
             onToggleCollapse={()=>toggleCollapse('field')}
             label="Field" active={isField} onToggle={()=>setIsField(v=>!v)}
             color="#22c55e" bgColor="#052e16" borderColor={isField?"#22c55e":"#27272a"} glowColor="#22c55e"
-            modeKey={fieldMode} modeLabel={['Gravity','Magnet','Vortex','Repel','Wind','Orbit'][fieldMode]||'—'} modeCount={6} onModeChange={v=>setFieldMode(v)}
+            modeKey={fieldMode} modeLabel={['Gravity','Repulsor','Dipole','Attract','Wind','Orbit'][fieldMode]||'—'} modeCount={6} onModeChange={v=>setFieldMode(v)}
             frontBottomContent={<>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:2}}>
                 <span style={{fontSize:6,fontWeight:900,textTransform:'uppercase',color:'#6b7280'}}>Amount</span>
@@ -6024,7 +6024,7 @@ export default function Morphology(){
             backContent={<>
               <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.15em',color:'#52525b',marginBottom:4}}>Mode</div>
               <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:4,marginBottom:6}}>
-                {[['Gravity',0],['Magnet',1],['Vortex',2],['Repel',3],['Wind',4],['Orbit',5]].map(([lbl,id])=>(
+                {[['Gravity',0],['Repulsor',1],['Dipole',2],['Attract',3],['Wind',4],['Orbit',5]].map(([lbl,id])=>(
                   <button key={id} onClick={()=>setFieldMode(id)} style={{padding:'5px 0',borderRadius:6,border:`1px solid ${fieldMode===id?(isField?'#22c55e':'#22c55e44'):'#3f3f46'}`,background:fieldMode===id?(isField?'rgba(34,197,94,0.15)':'rgba(34,197,94,0.06)'):'rgba(0,0,0,0.3)',color:fieldMode===id?(isField?'#86efac':'#22c55e'):'#71717a',fontSize:7,fontWeight:900,textTransform:'uppercase',cursor:'pointer'}}>{lbl}</button>
                 ))}
               </div>
