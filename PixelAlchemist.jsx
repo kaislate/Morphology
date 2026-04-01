@@ -2999,7 +2999,7 @@ export default function PixelAlchemist(){
   // Popout sync
   useEffect(()=>{
     let last=0;
-    let rafId;
+    let rafId=null;
     const sync=now=>{
       if(popoutWindowRef.current&&!popoutWindowRef.current.closed){
         const pc=popoutWindowRef.current.document.getElementById('v');
@@ -3015,8 +3015,8 @@ export default function PixelAlchemist(){
               popoutWindowRef.current.document.body.style.background=bg;
           }
         }
+        rafId=requestAnimationFrame(sync);
       }
-      rafId=requestAnimationFrame(sync);
     };
     rafId=requestAnimationFrame(sync);
     return()=>{cancelAnimationFrame(rafId);if(popoutWindowRef.current&&!popoutWindowRef.current.closed)popoutWindowRef.current.close();};
