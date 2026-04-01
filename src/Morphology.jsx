@@ -3615,56 +3615,46 @@ export default function Morphology(){
         else if(fm===7){const cx=curX-DIMENSION/2,cy=curY-DIMENSION/2;const dist=Math.sqrt(cx*cx+cy*cy);const ripple=Math.sin(dist*0.1-t*5)*mag*0.5;const angle=Math.atan2(cy,cx);curX+=Math.cos(angle)*ripple;curY+=Math.sin(angle)*ripple;}
       }
 
-      // Field — vector field forces on particle position (pre-sym)
+      // Field — velocity field: each mode assigns a flow direction at particle position
       if(rc.isField){
         const fMag=rcFieldAmt*60;
         const fm2=rc.fieldMode||0;
         const fwx=(rc.fieldX||0.5)*DIMENSION, fwy=(rc.fieldY||0.5)*DIMENSION;
         const fcx=curX-fwx, fcy=curY-fwy;
         const fdist=Math.sqrt(fcx*fcx+fcy*fcy)||1;
-        const fang=Math.atan2(fcy,fcx);
-        if(fm2===0){// Gravity Well — well orbits CW so spiral never settles
-          const wx=fwx+Math.cos(t*0.8)*20,wy=fwy+Math.sin(t*0.8)*20;
-          const cx2=curX-wx,cy2=curY-wy,d2=Math.sqrt(cx2*cx2+cy2*cy2)||1;
-          const str=fMag*0.16;
-          curX-=(cx2/d2)*str;curY-=(cy2/d2)*str;
-          curX+=(-cy2/d2)*str*0.5;curY+=(cx2/d2)*str*0.5;
-        }else if(fm2===1){// Repulsor — well orbits CCW, outward fan arcs continuously
-          const wx=fwx+Math.cos(-t*0.8)*20,wy=fwy+Math.sin(-t*0.8)*20;
-          const cx2=curX-wx,cy2=curY-wy,d2=Math.sqrt(cx2*cx2+cy2*cy2)||1;
-          const str=fMag*0.16;
-          curX+=(cx2/d2)*str;curY+=(cy2/d2)*str;
-          curX+=(cy2/d2)*str*0.35;curY+=(-cx2/d2)*str*0.35;
-        }else if(fm2===2){// Magnetic Dipole — poles oscillate in opposite phase
-          const ph=t*0.8;
-          const pole1x=DIMENSION*0.35,pole1y=DIMENSION/2+Math.sin(ph)*18;
-          const pole2x=DIMENSION*0.65,pole2y=DIMENSION/2+Math.sin(ph+Math.PI)*18;
-          const d1x=curX-pole1x,d1y=curY-pole1y,d1=Math.sqrt(d1x*d1x+d1y*d1y)||1;
-          const d2x=curX-pole2x,d2y=curY-pole2y,d2=Math.sqrt(d2x*d2x+d2y*d2y)||1;
-          const f1=Math.min(fMag*0.18,fMag*0.28/(1+d1*0.007));
-          const f2=Math.min(fMag*0.18,fMag*0.28/(1+d2*0.007));
-          curX-=(d1x/d1)*f1;curY-=(d1y/d1)*f1;
-          curX+=(d2x/d2)*f2;curY+=(d2y/d2)*f2;
-        }else if(fm2===3){// Attractor Web — 3×3 nodes drift around grid anchors
-          const gSize=DIMENSION/3;let ax=0,ay=0;
-          for(let wx2=0;wx2<3;wx2++)for(let wy2=0;wy2<3;wy2++){
-            const px2=gSize*(wx2+0.5)+Math.cos(t*0.7+wx2*2.0+wy2*1.5)*12;
-            const py2=gSize*(wy2+0.5)+Math.sin(t*0.7+wx2*1.5+wy2*2.3)*12;
-            const dx2=curX-px2,dy2=curY-py2,d2=Math.sqrt(dx2*dx2+dy2*dy2)||1;
-            const f=fMag*0.38/(1+d2*0.008);ax-=(dx2/d2)*f;ay-=(dy2/d2)*f;
+        if(fm2===0){// Gravity — inward spiral flow field
+            const th=Math.atan2(-fcy,-fcx)-0.4+Math.sin(t*0.45+fdist*0.014)*0.45;
+            curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
+          }else if(fm2===1){// Repulsor — outward spiral flow field
+            const th=Math.atan2(fcy,fcx)+0.4+Math.sin(t*0.45+fdist*0.014)*0.45;
+            curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
+          }else if(fm2===2){// Dipole — iron-filings flow field
+            const ph=t*0.22,sep=DIMENSION*0.15;
+            const p1x=fwx+Math.cos(ph)*sep,p1y=fwy+Math.sin(ph)*sep;
+            const p2x=fwx-Math.cos(ph)*sep,p2y=fwy-Math.sin(ph)*sep;
+            const d1x=curX-p1x,d1y=curY-p1y,d1=Math.sqrt(d1x*d1x+d1y*d1y)||1;
+            const d2x=curX-p2x,d2y=curY-p2y,d2=Math.sqrt(d2x*d2x+d2y*d2y)||1;
+            const netFx=d1x/(d1*d1)-d2x/(d2*d2),netFy=d1y/(d1*d1)-d2y/(d2*d2);
+            const th=Math.atan2(netFy,netFx)+Math.sin(t*0.3+fdist*0.01)*0.35;
+            curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
+          }else if(fm2===3){// Attractor Web — 9-vortex flow field
+            const gSize=DIMENSION/3;let sumFx=0,sumFy=0;
+            for(let gx=0;gx<3;gx++)for(let gy=0;gy<3;gy++){
+              const nx=gSize*(gx+0.5)+Math.cos(t*0.5+gx*2.1+gy*1.7)*10;
+              const ny=gSize*(gy+0.5)+Math.sin(t*0.5+gx*1.7+gy*2.4)*10;
+              const cx=curX-nx,cy=curY-ny,d2=cx*cx+cy*cy||1;
+              sumFx+=-cy/d2;sumFy+=cx/d2;
+            }
+            const th=Math.atan2(sumFy,sumFx)+Math.sin(t*0.35)*0.3;
+            curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
+          }else if(fm2===4){// Wind — smooth Perlin-like vector field (unchanged)
+            const nx2=curX*0.008+t*0.4,ny2=curY*0.008+t*0.3;
+            const flow=Math.sin(nx2*2.1+ny2*1.7)*Math.PI*2;
+            curX+=Math.cos(flow)*fMag*0.12;curY+=Math.sin(flow)*fMag*0.12;
+          }else if(fm2===5){// Orbital — concentric ring flow field
+            const th=Math.atan2(fcy,fcx)+Math.PI*0.5+Math.sin(fdist*0.022+t*0.7)*0.5;
+            curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
           }
-          const aLen=Math.sqrt(ax*ax+ay*ay)||1;const cap=fMag*0.28;
-          const sc=Math.min(1,cap/aLen);curX+=ax*sc;curY+=ay*sc;
-        }else if(fm2===4){// Flow Field — smooth Perlin-like vector field
-          const nx2=curX*0.008+t*0.4,ny2=curY*0.008+t*0.3;
-          const flow=Math.sin(nx2*2.1+ny2*1.7)*Math.PI*2;
-          curX+=Math.cos(flow)*fMag*0.12;curY+=Math.sin(flow)*fMag*0.12;
-        }else if(fm2===5){// Orbital — angle advances with t so orbit runs even when paused
-          const targetR=DIMENSION*0.28+fMag*0.4;
-          const newAng=fang+t*1.5;
-          const pullR=(targetR-fdist)*0.14;
-          curX=fwx+Math.cos(newAng)*(fdist+pullR);curY=fwy+Math.sin(newAng)*(fdist+pullR);
-        }
       }
 
       let r=(px.r+(px.tr-px.r)*ease)|0,g=(px.g+(px.tg-px.g)*ease)|0,b=(px.b+(px.tb-px.b)*ease)|0;
