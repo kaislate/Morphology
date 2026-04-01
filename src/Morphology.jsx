@@ -3622,37 +3622,49 @@ export default function Morphology(){
         const fwx=(rc.fieldX||0.5)*DIMENSION, fwy=(rc.fieldY||0.5)*DIMENSION;
         const fcx=curX-fwx, fcy=curY-fwy;
         const fdist=Math.sqrt(fcx*fcx+fcy*fcy)||1;
-        if(fm2===0){// Gravity — inward spiral flow field
-          const th=Math.atan2(-fcy,-fcx)-0.4+Math.sin(t*0.45+fdist*0.014)*0.45;
+        if(fm2===0){// Aurora — layered magnetic band flow
+          const th=Math.sin(curX*0.006+t*0.5)*Math.PI
+                   +Math.sin(curY*0.004+t*0.3)*Math.PI*0.5
+                   +Math.sin(curX*0.003-curY*0.002+t*0.2)*Math.PI*0.3;
           curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
-        }else if(fm2===1){// Repulsor — outward spiral flow field
-          const th=Math.atan2(fcy,fcx)+0.4+Math.sin(t*0.45+fdist*0.014)*0.45;
+        }else if(fm2===1){// Plasma — high-frequency magnetic turbulence
+          const a1=Math.sin(curX*0.015+t*0.7)*Math.PI*2;
+          const a2=Math.sin(curY*0.012-t*0.5)*Math.PI*2;
+          const a3=Math.sin(curX*0.005-curY*0.008+t*0.4)*Math.PI;
+          const th=a1+a2*0.5+a3*0.3;
           curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
-        }else if(fm2===2){// Dipole — iron-filings flow field
-          const ph=t*0.22,sep=DIMENSION*0.15;
-          const p1x=fwx+Math.cos(ph)*sep,p1y=fwy+Math.sin(ph)*sep;
-          const p2x=fwx-Math.cos(ph)*sep,p2y=fwy-Math.sin(ph)*sep;
-          const d1x=curX-p1x,d1y=curY-p1y,d1=Math.sqrt(d1x*d1x+d1y*d1y)||1;
-          const d2x=curX-p2x,d2y=curY-p2y,d2=Math.sqrt(d2x*d2x+d2y*d2y)||1;
-          const netFx=d1x/(d1*d1)-d2x/(d2*d2),netFy=d1y/(d1*d1)-d2y/(d2*d2);
-          const th=Math.atan2(netFy,netFx)+Math.sin(t*0.3+fdist*0.01)*0.35;
+        }else if(fm2===2){// Lattice — geometric alternating vortex grid
+          const freq=0.018;
+          const th=Math.atan2(Math.sin(curY*freq+t*0.15),Math.sin(curX*freq+t*0.1));
           curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
-        }else if(fm2===3){// Attractor Web — 9-vortex flow field
-          const gSize=DIMENSION/3;let sumFx=0,sumFy=0;
-          for(let gx=0;gx<3;gx++)for(let gy=0;gy<3;gy++){
-            const nx=gSize*(gx+0.5)+Math.cos(t*0.5+gx*2.1+gy*1.7)*10;
-            const ny=gSize*(gy+0.5)+Math.sin(t*0.5+gx*1.7+gy*2.4)*10;
-            const cx=curX-nx,cy=curY-ny,d2=cx*cx+cy*cy||1;
-            sumFx+=-cy/d2;sumFy+=cx/d2;
-          }
-          const th=Math.atan2(sumFy,sumFx)+Math.sin(t*0.35)*0.3;
+        }else if(fm2===3){// Interference — two-source magnetic wave interference
+          const s1x=DIMENSION*0.35+Math.cos(t*0.3)*DIMENSION*0.1;
+          const s1y=DIMENSION*0.5+Math.sin(t*0.2)*DIMENSION*0.08;
+          const s2x=DIMENSION*0.65+Math.cos(t*0.25+1.0)*DIMENSION*0.1;
+          const s2y=DIMENSION*0.5+Math.sin(t*0.3+0.5)*DIMENSION*0.08;
+          const r1=Math.sqrt((curX-s1x)*(curX-s1x)+(curY-s1y)*(curY-s1y));
+          const r2=Math.sqrt((curX-s2x)*(curX-s2x)+(curY-s2y)*(curY-s2y));
+          const th=Math.sin(r1*0.05-t*0.6)*Math.PI+Math.sin(r2*0.05-t*0.4)*Math.PI;
           curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
         }else if(fm2===4){// Wind — smooth Perlin-like vector field (unchanged)
           const nx2=curX*0.008+t*0.4,ny2=curY*0.008+t*0.3;
           const flow=Math.sin(nx2*2.1+ny2*1.7)*Math.PI*2;
           curX+=Math.cos(flow)*fMag*0.12;curY+=Math.sin(flow)*fMag*0.12;
-        }else if(fm2===5){// Orbital — concentric ring flow field
-          const th=Math.atan2(fcy,fcx)+Math.PI*0.5+Math.sin(fdist*0.022+t*0.7)*0.5;
+        }else if(fm2===5){// Magrev — magnetic flux reversal domains
+          const th=Math.sin(curX*0.01+t*0.3)*Math.cos(curY*0.01-t*0.2)*Math.PI*2;
+          curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
+        }else if(fm2===6){// Poles — 4 rotating alternating-polarity field sources
+          const ph=t*0.25,sep=DIMENSION*0.25,soft=DIMENSION*0.1;
+          let sumFx=0,sumFy=0;
+          for(let i=0;i<4;i++){
+            const ang=ph+i*Math.PI*0.5;
+            const px=fwx+Math.cos(ang)*sep,py=fwy+Math.sin(ang)*sep;
+            const dx=curX-px,dy=curY-py;
+            const d=Math.sqrt(dx*dx+dy*dy)+soft;
+            const sign=(i%2===0)?1:-1;
+            sumFx+=sign*dx/d;sumFy+=sign*dy/d;
+          }
+          const th=Math.atan2(sumFy,sumFx)+Math.sin(t*0.25)*0.3;
           curX+=Math.cos(th)*fMag*0.12;curY+=Math.sin(th)*fMag*0.12;
         }
       }
