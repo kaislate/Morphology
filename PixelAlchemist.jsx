@@ -2959,6 +2959,7 @@ export default function PixelAlchemist(){
       cyXoverSL,cyXoverLM,cyXoverMH,cyLufsWindow,
       cyRender,cyAutoGain,cyStereoWidth,cyPhaseOff,cyTrails,cyScopeZoom,cyScopeRot,
       cySymLink,cySymApply,cySymHide,cyGridlines,cyInvert,cyGlowAmt,cyXYSwap,cyFreqBands,cySpinRate,cyWarpAmt,cyNoise,cyDecay,cyFracStyle,cyPrisLink,cyFluxLink,
+      cyLiquidMode,cyFoamSpeed,cyFoamScale,cyFoamLayers,cyFoamFlow,cyFoamThresh,cyFoamBlend,
     };
   });
 
