@@ -2999,6 +2999,7 @@ export default function PixelAlchemist(){
   // Popout sync
   useEffect(()=>{
     let last=0;
+    let rafId;
     const sync=now=>{
       if(popoutWindowRef.current&&!popoutWindowRef.current.closed){
         const pc=popoutWindowRef.current.document.getElementById('v');
@@ -3015,10 +3016,10 @@ export default function PixelAlchemist(){
           }
         }
       }
-      requestAnimationFrame(sync);
+      rafId=requestAnimationFrame(sync);
     };
-    requestAnimationFrame(sync);
-    return()=>{if(popoutWindowRef.current&&!popoutWindowRef.current.closed)popoutWindowRef.current.close();};
+    rafId=requestAnimationFrame(sync);
+    return()=>{cancelAnimationFrame(rafId);if(popoutWindowRef.current&&!popoutWindowRef.current.closed)popoutWindowRef.current.close();};
   },[]);
 
   const ensureCanvas=ref=>{
