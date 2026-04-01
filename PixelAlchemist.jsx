@@ -365,16 +365,25 @@ const BracketSlider=({lo,hi,onLoChange,onHiChange,color='#f59e0b'})=>{
   const trackRef=useRef(null);
   const dragRef=useRef(null);
   const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
-  const getFrac=e=>{const r=trackRef.current.getBoundingClientRect();return clamp((e.clientX-r.left)/r.width,0,1);};
+  // Callback refs — same pattern as FSliderLFO. Prevents stale closures when parent
+  // passes inline lambdas, and avoids re-registering listeners on every render.
+  const onLoRef=useRef(onLoChange);
+  const onHiRef=useRef(onHiChange);
+  const loRef=useRef(lo);
+  const hiRef=useRef(hi);
+  useEffect(()=>{onLoRef.current=onLoChange;},[onLoChange]);
+  useEffect(()=>{onHiRef.current=onHiChange;},[onHiChange]);
+  useEffect(()=>{loRef.current=lo;},[lo]);
+  useEffect(()=>{hiRef.current=hi;},[hi]);
   const onMouseDown=(handle,e)=>{e.preventDefault();e.stopPropagation();dragRef.current=handle;};
   useEffect(()=>{
-    const mm=e=>{if(!dragRef.current||!trackRef.current)return;const f=getFrac(e);if(dragRef.current==='lo')onLoChange(clamp(f,0,hi-0.04));else onHiChange(clamp(f,lo+0.04,1));};
+    const getFrac=e=>{if(!trackRef.current)return 0;const r=trackRef.current.getBoundingClientRect();return clamp((e.clientX-r.left)/r.width,0,1);};
+    const mm=e=>{if(!dragRef.current||!trackRef.current)return;const f=getFrac(e);if(dragRef.current==='lo')onLoRef.current(clamp(f,0,hiRef.current-0.04));else onHiRef.current(clamp(f,loRef.current+0.04,1));};
     const mu=()=>{dragRef.current=null;};
     window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu);
     return()=>{window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu);};
-  },[lo,hi]);
+  },[]);
   const loPct=lo*100,hiPct=hi*100;
-  const mid=(lo+hi)/2*100;
   return(
     <div ref={trackRef} className="relative w-full select-none" style={{height:'16px',cursor:'ew-resize'}}>
       <div className="absolute rounded-full" style={{top:'50%',transform:'translateY(-50%)',left:0,right:0,height:'3px',background:'#3f3f46'}}/>
@@ -395,17 +404,23 @@ const RangeSlider=({lo,hi,onLoChange,onHiChange,color='#06b6d4',enabled=true})=>
   const trackRef=useRef(null);
   const drag=useRef(null);
   const clamp=(v,mn,mx)=>Math.max(mn,Math.min(mx,v));
-  const getFrac=e=>{
-    const rect=trackRef.current.getBoundingClientRect();
-    return clamp((e.clientX-rect.left)/rect.width,0,1);
-  };
+  // Callback refs — same pattern as FSliderLFO and BracketSlider.
+  const onLoRef=useRef(onLoChange);
+  const onHiRef=useRef(onHiChange);
+  const loRef=useRef(lo);
+  const hiRef=useRef(hi);
+  useEffect(()=>{onLoRef.current=onLoChange;},[onLoChange]);
+  useEffect(()=>{onHiRef.current=onHiChange;},[onHiChange]);
+  useEffect(()=>{loRef.current=lo;},[lo]);
+  useEffect(()=>{hiRef.current=hi;},[hi]);
   const onMouseDown=(handle,e)=>{e.preventDefault();drag.current=handle;};
   useEffect(()=>{
-    const mm=e=>{if(!drag.current)return;const f=getFrac(e);if(drag.current==='lo')onLoChange(clamp(f,0,hi-0.02));else onHiChange(clamp(f,lo+0.02,1));};
+    const getFrac=e=>{if(!trackRef.current)return 0;const rect=trackRef.current.getBoundingClientRect();return clamp((e.clientX-rect.left)/rect.width,0,1);};
+    const mm=e=>{if(!drag.current)return;const f=getFrac(e);if(drag.current==='lo')onLoRef.current(clamp(f,0,hiRef.current-0.02));else onHiRef.current(clamp(f,loRef.current+0.02,1));};
     const mu=()=>{drag.current=null;};
     window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu);
     return()=>{window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu);};
-  },[lo,hi]);
+  },[]);
   const loPct=lo*100; const hiPct=hi*100;
   const col=enabled?color:'#52525b';
   return(
