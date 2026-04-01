@@ -271,26 +271,35 @@ const FSliderLFO=({value,min,max,step=0.01,onChange,color='#fff',enabled=true,de
   const onRangeChangeRef=useRef(onRangeChange);
   useEffect(()=>{onChangeRef.current=onChange;},[onChange]);
   useEffect(()=>{onRangeChangeRef.current=onRangeChange;},[onRangeChange]);
+  const loRef=useRef(lo);
+  const hiRef=useRef(hi);
+  const minRef=useRef(min);
+  const maxRef=useRef(max);
+  useEffect(()=>{loRef.current=lo;},[lo]);
+  useEffect(()=>{hiRef.current=hi;},[hi]);
+  useEffect(()=>{minRef.current=min;},[min]);
+  useEffect(()=>{maxRef.current=max;},[max]);
 
   const onDbl=e=>{e.preventDefault();if(defaultVal!==undefined)onChangeRef.current(defaultVal);};
   const onMouseDown=(handle,e)=>{e.preventDefault();e.stopPropagation();dragRef.current=handle;};
 
   useEffect(()=>{
     const getFrac=e=>{
+      if(!trackRef.current) return 0;
       const r=trackRef.current.getBoundingClientRect();
       return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
     };
     const mm=e=>{
       if(!dragRef.current||!trackRef.current)return;
       const f=getFrac(e);
-      if(dragRef.current==='lo')onRangeChangeRef.current({lo:Math.min(f,hi-0.04),hi});
-      else if(dragRef.current==='hi')onRangeChangeRef.current({lo,hi:Math.max(f,lo+0.04)});
-      else onChangeRef.current(min+(max-min)*f);
+      if(dragRef.current==='lo')onRangeChangeRef.current({lo:Math.min(f,hiRef.current-0.04),hi:hiRef.current});
+      else if(dragRef.current==='hi')onRangeChangeRef.current({lo:loRef.current,hi:Math.max(f,loRef.current+0.04)});
+      else onChangeRef.current(minRef.current+(maxRef.current-minRef.current)*f);
     };
     const mu=()=>{dragRef.current=null;};
     window.addEventListener('mousemove',mm);window.addEventListener('mouseup',mu);
     return()=>{window.removeEventListener('mousemove',mm);window.removeEventListener('mouseup',mu);};
-  },[lo,hi,min,max]);
+  },[]);
 
   return(
     <div ref={trackRef} className="relative w-full select-none" style={{height:'16px',cursor:'pointer'}}
