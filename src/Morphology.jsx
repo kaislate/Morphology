@@ -3623,26 +3623,33 @@ export default function Morphology(){
         const fcx=curX-fwx, fcy=curY-fwy;
         const fdist=Math.sqrt(fcx*fcx+fcy*fcy)||1;
         const fang=Math.atan2(fcy,fcx);
-        if(fm2===0){// Gravity Well — spiral inward (radial pull + CW tangential)
+        if(fm2===0){// Gravity Well — well orbits CW so spiral never settles
+          const wx=fwx+Math.cos(t*0.8)*20,wy=fwy+Math.sin(t*0.8)*20;
+          const cx2=curX-wx,cy2=curY-wy,d2=Math.sqrt(cx2*cx2+cy2*cy2)||1;
           const str=fMag*0.16;
-          curX-=(fcx/fdist)*str;curY-=(fcy/fdist)*str;
-          curX+=(-fcy/fdist)*str*0.5;curY+=(fcx/fdist)*str*0.5;
-        }else if(fm2===1){// Repulsor — expand outward with CCW counter-swirl
+          curX-=(cx2/d2)*str;curY-=(cy2/d2)*str;
+          curX+=(-cy2/d2)*str*0.5;curY+=(cx2/d2)*str*0.5;
+        }else if(fm2===1){// Repulsor — well orbits CCW, outward fan arcs continuously
+          const wx=fwx+Math.cos(-t*0.8)*20,wy=fwy+Math.sin(-t*0.8)*20;
+          const cx2=curX-wx,cy2=curY-wy,d2=Math.sqrt(cx2*cx2+cy2*cy2)||1;
           const str=fMag*0.16;
-          curX+=(fcx/fdist)*str;curY+=(fcy/fdist)*str;
-          curX+=(fcy/fdist)*str*0.35;curY+=(-fcx/fdist)*str*0.35;
-        }else if(fm2===2){// Magnetic Dipole — south pole attracts, north pole repels
-          const pole1x=DIMENSION*0.35,pole1y=DIMENSION/2,pole2x=DIMENSION*0.65,pole2y=DIMENSION/2;
+          curX+=(cx2/d2)*str;curY+=(cy2/d2)*str;
+          curX+=(cy2/d2)*str*0.35;curY+=(-cx2/d2)*str*0.35;
+        }else if(fm2===2){// Magnetic Dipole — poles oscillate in opposite phase
+          const ph=t*0.8;
+          const pole1x=DIMENSION*0.35,pole1y=DIMENSION/2+Math.sin(ph)*18;
+          const pole2x=DIMENSION*0.65,pole2y=DIMENSION/2+Math.sin(ph+Math.PI)*18;
           const d1x=curX-pole1x,d1y=curY-pole1y,d1=Math.sqrt(d1x*d1x+d1y*d1y)||1;
           const d2x=curX-pole2x,d2y=curY-pole2y,d2=Math.sqrt(d2x*d2x+d2y*d2y)||1;
           const f1=Math.min(fMag*0.18,fMag*0.28/(1+d1*0.007));
           const f2=Math.min(fMag*0.18,fMag*0.28/(1+d2*0.007));
           curX-=(d1x/d1)*f1;curY-=(d1y/d1)*f1;
           curX+=(d2x/d2)*f2;curY+=(d2y/d2)*f2;
-        }else if(fm2===3){// Attractor Web — 3×3 grid of wells, strength-capped
+        }else if(fm2===3){// Attractor Web — 3×3 nodes drift around grid anchors
           const gSize=DIMENSION/3;let ax=0,ay=0;
           for(let wx2=0;wx2<3;wx2++)for(let wy2=0;wy2<3;wy2++){
-            const px2=gSize*(wx2+0.5),py2=gSize*(wy2+0.5);
+            const px2=gSize*(wx2+0.5)+Math.cos(t*0.7+wx2*2.0+wy2*1.5)*12;
+            const py2=gSize*(wy2+0.5)+Math.sin(t*0.7+wx2*1.5+wy2*2.3)*12;
             const dx2=curX-px2,dy2=curY-py2,d2=Math.sqrt(dx2*dx2+dy2*dy2)||1;
             const f=fMag*0.38/(1+d2*0.008);ax-=(dx2/d2)*f;ay-=(dy2/d2)*f;
           }
@@ -3652,9 +3659,9 @@ export default function Morphology(){
           const nx2=curX*0.008+t*0.4,ny2=curY*0.008+t*0.3;
           const flow=Math.sin(nx2*2.1+ny2*1.7)*Math.PI*2;
           curX+=Math.cos(flow)*fMag*0.12;curY+=Math.sin(flow)*fMag*0.12;
-        }else if(fm2===5){// Orbital — converge to ring radius then circle well
+        }else if(fm2===5){// Orbital — angle advances with t so orbit runs even when paused
           const targetR=DIMENSION*0.28+fMag*0.4;
-          const newAng=fang+fMag*0.0006;
+          const newAng=fang+t*1.5;
           const pullR=(targetR-fdist)*0.14;
           curX=fwx+Math.cos(newAng)*(fdist+pullR);curY=fwy+Math.sin(newAng)*(fdist+pullR);
         }
