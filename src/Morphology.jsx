@@ -2448,6 +2448,174 @@ const DraggableEngineGrid=({order,setOrder,renderCard})=>{
 };
 
 
+const SCOPE_CARD_SIZE = 200;
+
+const BLEND_MODES = [
+  ['screen','Screen'],['lighter','Add'],['overlay','Overlay'],
+  ['multiply','Multiply'],['source-over','Normal'],
+];
+
+function ScopeCard({ card, canvasRefCallback, onToggle, onFlip, setScopeCard }) {
+  const { id, color, enabled, flipped } = card;
+  const border   = enabled ? `1.5px solid ${color}88` : '1.5px solid #27272a';
+  const shadow   = enabled
+    ? `0 0 28px ${color}44, inset 0 0 0 1px ${color}22`
+    : '0 0 10px rgba(0,0,0,0.5)';
+
+  return (
+    <div style={{
+      position:'relative', width:SCOPE_CARD_SIZE, height:SCOPE_CARD_SIZE,
+      borderRadius:16, overflow:'hidden', border, boxShadow:shadow,
+      flexShrink:0, cursor:'default',
+    }}>
+      {/* Live canvas background */}
+      <canvas
+        ref={el=>{if(el)canvasRefCallback(id,el);}}
+        width={SCOPE_CARD_SIZE} height={SCOPE_CARD_SIZE}
+        style={{
+          position:'absolute', inset:0, width:'100%', height:'100%',
+          opacity: enabled ? 1 : 0.18,
+          display: flipped ? 'none' : 'block',
+        }}
+      />
+
+      {/* Back face */}
+      {flipped && (
+        <ScopeCardBack card={card} onChange={patch=>setScopeCard(card.id,patch)} onFlip={onFlip}/>
+      )}
+
+      {/* Top overlay */}
+      <div style={{
+        position:'absolute', top:0, left:0, right:0, padding:'9px 11px',
+        background:'linear-gradient(to bottom,rgba(0,0,0,0.82),transparent)',
+        display:'flex', alignItems:'center', justifyContent:'space-between', zIndex:2,
+      }}>
+        <div style={{display:'flex',alignItems:'center',gap:5}}>
+          {enabled && (
+            <div style={{width:6,height:6,borderRadius:'50%',background:color,boxShadow:`0 0 8px ${color}`}}/>
+          )}
+          <span style={{color:enabled?'#fff':'#71717a',fontSize:8,fontWeight:900,fontFamily:'monospace',letterSpacing:'0.08em',textTransform:'uppercase'}}>
+            {id}
+          </span>
+        </div>
+        <button onClick={onFlip} style={{
+          width:18,height:18,borderRadius:5,border:'1px solid #3f3f46',
+          background:'rgba(0,0,0,0.5)',color:'#71717a',fontSize:9,cursor:'pointer',
+          display:'flex',alignItems:'center',justifyContent:'center',
+        }}>{flipped ? '⊟' : '⊞'}</button>
+      </div>
+
+      {/* Bottom bar */}
+      {!flipped && (
+        <div style={{
+          position:'absolute', bottom:0, left:0, right:0, padding:'7px 11px',
+          background:'linear-gradient(to top,rgba(0,0,0,0.88),transparent)',
+          backdropFilter:'blur(2px)', display:'flex', alignItems:'center',
+          justifyContent:'space-between', zIndex:2,
+        }}>
+          <button onClick={onToggle} style={{
+            background: enabled ? `${color}22` : 'rgba(0,0,0,0.3)',
+            border: `1px solid ${enabled ? color+'55' : '#3f3f46'}`,
+            borderRadius:4, padding:'2px 7px',
+            color: enabled ? color : '#52525b',
+            fontSize:7, fontWeight:900, fontFamily:'monospace', cursor:'pointer',
+          }}>{enabled ? 'ON' : 'OFF'}</button>
+          {enabled && (
+            <span style={{color:`${color}99`,fontSize:7,fontWeight:900,fontFamily:'monospace',letterSpacing:'0.1em',textTransform:'uppercase'}}>
+              {card.blend.toUpperCase()}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScopeCardBack({ card, onChange, onFlip }) {
+  const { id, color, enabled, blend } = card;
+  const col = enabled ? color : '#52525b';
+
+  return (
+    <div style={{
+      position:'absolute', inset:0, borderRadius:16, overflow:'hidden',
+      background:'#08080f', border:`1.5px solid ${enabled?color+'88':'#3f3f46'}`,
+      boxShadow: enabled ? `0 0 28px ${color}33` : 'none',
+      display:'flex', flexDirection:'column', zIndex:3,
+    }}>
+      {/* Mini header strip */}
+      <div style={{
+        background:`linear-gradient(135deg,${color}22,transparent)`,
+        borderBottom:`1px solid ${color}22`, padding:'8px 11px',
+        display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0,
+      }}>
+        <span style={{color:col,fontSize:8,fontWeight:900,fontFamily:'monospace',letterSpacing:'0.1em',textTransform:'uppercase'}}>{id}</span>
+        <button onClick={onFlip} style={{
+          width:22,height:22,borderRadius:6,border:'1px solid #3f3f46',
+          background:'rgba(0,0,0,0.5)',color:'#71717a',fontSize:10,cursor:'pointer',
+          display:'flex',alignItems:'center',justifyContent:'center',
+        }}>⊟</button>
+      </div>
+
+      {/* Blend mode row */}
+      <div style={{padding:'6px 8px 4px',flexShrink:0}}>
+        <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.15em',color:'#52525b',marginBottom:4}}>Blend</div>
+        <div style={{display:'flex',gap:3,flexWrap:'wrap'}}>
+          {BLEND_MODES.map(([val,lbl])=>(
+            <button key={val} onClick={()=>onChange({blend:val})} style={{
+              padding:'2px 5px', borderRadius:4, fontSize:6, fontWeight:900,
+              textTransform:'uppercase', cursor:'pointer',
+              background: blend===val ? (enabled?`${color}22`:'rgba(80,80,80,0.2)') : 'rgba(0,0,0,0.3)',
+              border: `1px solid ${blend===val?(enabled?color+'55':'#52525b'):'#3f3f46'}`,
+              color: blend===val ? (enabled?color:'#a1a1aa') : '#52525b',
+            }}>{lbl}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div style={{height:1,background:'#27272a',margin:'0 8px',flexShrink:0}}/>
+
+      {/* Per-mode controls — scrollable */}
+      <div style={{flex:1,overflowY:'auto',padding:'6px 8px'}}>
+        <ScopeCardControls card={card} onChange={onChange} col={col} enabled={enabled}/>
+      </div>
+    </div>
+  );
+}
+
+function ScopeCardControls({ card, onChange, col, enabled }) {
+  const sl=(label,key,min,max,step,def)=>(
+    <div style={{marginBottom:5}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+        <span style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.1em',color:'#52525b'}}>{label}</span>
+        <span style={{fontSize:6,fontWeight:900,color:enabled?col:'#52525b',fontVariantNumeric:'tabular-nums'}}>{Math.round(card[key]*100)}%</span>
+      </div>
+      <FSlider value={card[key]} min={min} max={max} step={step} defaultVal={def}
+        onChange={v=>onChange({[key]:v})} color={card.color} enabled={enabled}/>
+    </div>
+  );
+  const tog=(label,key)=>(
+    <button key={key} onClick={()=>onChange({[key]:!card[key]})} style={{
+      flex:1, padding:'3px 0', borderRadius:5, fontSize:6, fontWeight:900,
+      textTransform:'uppercase', cursor:'pointer',
+      background: card[key] ? (enabled?`${card.color}22`:'rgba(60,60,60,0.2)') : 'rgba(0,0,0,0.3)',
+      border: `1px solid ${card[key]?(enabled?card.color+'55':'#52525b'):'#3f3f46'}`,
+      color: card[key] ? (enabled?card.color:'#a1a1aa') : '#52525b',
+    }}>{label}</button>
+  );
+
+  return (
+    <>
+      {sl('Sensitivity','sens',0.1,2,0.01,0.65)}
+      {sl('Smooth','smooth',0,0.97,0.01,0.5)}
+      {sl('Intensity','intensity',0,1,0.01,0.75)}
+      <div style={{display:'flex',gap:3,marginBottom:5}}>
+        {tog('Glow','glow')}
+      </div>
+    </>
+  );
+}
+
 function SplashScreen({onDone}){
   const [fading,setFading]=useState(false);
   useEffect(()=>{
