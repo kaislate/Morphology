@@ -2780,90 +2780,51 @@ export default function Morphology(){
   const audBeatCoolRef = useRef(0);
   const audThreshRef   = useRef(0.15);
 
-  // Cymatics / Vectorscope state
-  const [isCymatic,    setIsCymatic]    = useState(false);
+  // ── Scope Cards (Visualizer) ──────────────────────────────────────────────
+  const mkCard=(id,color,extras={})=>({id,color,enabled:false,flipped:false,blend:'screen',sens:0.65,smooth:0.5,intensity:0.75,glow:true,...extras});
+  const [scopeCards,setScopeCards]=useState([
+    mkCard('vscope',   '#22d3ee',{lineStyle:'line',mirror:false}),
+    mkCard('polar',    '#67e8f9',{lineStyle:'line',mirror:false}),
+    mkCard('wave3d',   '#3b82f6',{depth:0.5,grid:false}),
+    mkCard('phosphor', '#22c55e',{persistence:0.7,glowAmt:0.8}),
+    mkCard('spectral', '#a855f7',{freqLo:0,freqHi:1,orbitSpeed:0.5,trailLen:0.5}),
+    mkCard('particles','#f59e0b',{count:0.5,size:0.5,decay:0.5}),
+    mkCard('diff',     '#f97316',{lineStyle:'line',invert:false}),
+    mkCard('fractal',  '#ec4899',{iterations:0.5,fracStyle:0}),
+    mkCard('neural',   '#10b981',{nodeSize:0.5,edgeOpacity:0.5}),
+    mkCard('shard',    '#ef4444',{shardCount:0.5,invert:false}),
+  ]);
+  const scopeCardsRef=useRef(scopeCards);
+  const setScopeCard=(id,patch)=>setScopeCards(prev=>prev.map(c=>c.id===id?{...c,...patch}:c));
+
+  // Keep these for Column 1 Input section (used by tickAudio)
   const [cyListen,     setCyListen]     = useState(false);
-  const [cyMode,       setCyMode]       = useState(0);
-  // 0=Vectorscope 1=Polar 2=3D Waterfall 3=Phosphor 4=Spectral Orbit
-  // 5=Particle Field 6=Differential 7=Chromatic Rings 8=Fractal Pulse 9=Neural Flow
-  // 10=Shard Mirror 11=Quantum Foam
-  const [cyBlend,      setCyBlend]      = useState('screen');
-  const [cyAmt,        setCyAmt]        = useState(0.75);
-  const [cySmooth,     setCySmooth]     = useState(0.72);
-  const [cySens,       setCySens]       = useState(0.65);
-  const [cyColor,      setCyColor]      = useState('#00ffcc');
-  const [cyColorMode,  setCyColorMode]  = useState('fixed'); // fixed|rainbow|source|spectrum
-  const [cyMirror,     setCyMirror]     = useState(false);
-  const [cyFill,       setCyFill]       = useState(false);
-  const [cyGlow,       setCyGlow]       = useState(true);
-  // New vectorscope controls
-  const [cyRender,     setCyRender]     = useState('line');   // line|point|thick|filled
-  const [cyAutoGain,   setCyAutoGain]   = useState(true);     // auto-normalise amplitude
-  const [cyStereoWidth,setCyStereoWidth]= useState(0.5);      // simulated stereo spread 0-1
-  const [cyPhaseOff,   setCyPhaseOff]   = useState(0.25);     // phase offset 0-1 (0.25=90°)
-  const [cyTrails,     setCyTrails]     = useState(0.30);     // persistence/trail decay
-  const [cyScopeZoom,  setCyScopeZoom]  = useState(1.0);      // independent scope zoom
-  const [cyScopeRot,   setCyScopeRot]   = useState(0);        // scope canvas rotation deg
-  const [cySymLink,    setCySymLink]    = useState(false);     // apply Transform module (zoom/rot)
-  const [cySymApply,   setCySymApply]   = useState(false);    // apply Symmetry module
-  const [cySymHide,    setCySymHide]    = useState(false);    // hide raw scope, show only symmetry copies
-  const [cyGridlines,  setCyGridlines]  = useState(false);    // show vectorscope grid
-  const [cyInvert,     setCyInvert]     = useState(false);    // invert scope background
-  const [cyGlowAmt,    setCyGlowAmt]    = useState(0.5);      // glow radius multiplier 0-1
-  const [cyXYSwap,     setCyXYSwap]     = useState(false);    // swap X/Y axes
-  const [cyFreqBands,  setCyFreqBands]  = useState(3);        // how many freq bands to layer
-  const [cySpinRate,   setCySpinRate]   = useState(0);        // auto-spin rate 0-1
-  const [cyWarpAmt,    setCyWarpAmt]    = useState(0);        // barrel/warp distortion 0-1
-  const [cyNoise,      setCyNoise]      = useState(0);        // add noise texture 0-1
-  const [cyDecay,      setCyDecay]      = useState(0);        // zoom-shrink decay 0=off 1=fast
-  const [cyFracStyle,  setCyFracStyle]  = useState(0);        // fractal sub-mode 0-4
-  const [cyLiquidMode, setCyLiquidMode] = useState(0);        // liquid cymatic sub-mode 0-3
-  const [cyPrisLink,   setCyPrisLink]   = useState(false);     // link Prismatic to scope
-  const [cyFluxLink,   setCyFluxLink]   = useState(false);     // link Flux to scope
-  // ── Q.Foam / Field mode state ──────────────────────────────────────────────
-  const [cyFoamSpeed,  setCyFoamSpeed]  = useState(0.4);      // field animation speed
-  const [cyFoamScale,  setCyFoamScale]  = useState(0.5);      // spatial frequency / zoom
-  const [cyFoamLayers, setCyFoamLayers] = useState(3);        // wave layer count 1-6
-  const [cyFoamFlow,   setCyFoamFlow]   = useState(0.5);      // directional flow bias
-  const [cyFoamThresh, setCyFoamThresh] = useState(0.35);     // brightness threshold (contour density)
-  const [cyFoamBlend,  setCyFoamBlend]  = useState('color');  // color mapping mode
-  // Routing
   const [cyHideCanvas,   setCyHideCanvas]   = useState(false);
-  const [canvasBg,       setCanvasBg]       = useState('#000000'); // '#000000' | '#00ff00' | '#ff00ff' | custom
-  const [cyFreqLo,       setCyFreqLo]       = useState(0);
-  const [cyFreqHi,       setCyFreqHi]       = useState(1);
-  const [cyFreqHz,       setCyFreqHz]       = useState(false); // false=% mode, true=Hz mode
-  const [cyFreqLoHz,     setCyFreqLoHz]     = useState(20);    // Hz mode low cutoff
-  const [cyFreqHiHz,     setCyFreqHiHz]     = useState(20000); // Hz mode high cutoff
-  // Band crossover points stored in Hz — converted to bin indices in tickAudio
-  const [cyXoverSL,      setCyXoverSL]      = useState(80);    // Sub Bass / Low  (typ 60–120 Hz)
-  const [cyXoverLM,      setCyXoverLM]      = useState(500);   // Low / Mid       (typ 200–1000 Hz)
-  const [cyXoverMH,      setCyXoverMH]      = useState(4000);  // Mid / High      (typ 2k–8k Hz)
-  // LUFS integrated averaging
-  const [cyLufsWindow,   setCyLufsWindow]   = useState(3);     // seconds: 1 3 10 30
-  const lufsAccRef       = useRef([]);       // {v:lufs, t:timestamp} ring buffer
-  const [lufsAvg,        setLufsAvg]        = useState(-70);
-  const [cyLissMode,     setCyLissMode]     = useState(0);    // kept for compat
-  const [cyScopeDecay,   setCyScopeDecay]   = useState(0.85); // kept — maps to cyTrails
-  const [cyScopeLine,    setCyScopeLine]    = useState(true); // kept for compat
   const [cyMicErr,     setCyMicErr]     = useState('');
   const [cyResetFlash, setCyResetFlash] = useState(false);
+  const [cyFreqLo,       setCyFreqLo]       = useState(0);
+  const [cyFreqHi,       setCyFreqHi]       = useState(1);
+  const [cyFreqHz,     setCyFreqHz]     = useState(false);
+  const [cyFreqLoHz,   setCyFreqLoHz]   = useState(20);
+  const [cyFreqHiHz,   setCyFreqHiHz]   = useState(20000);
+  const [cySens,       setCySens]       = useState(0.65);
+  const [cySmooth,     setCySmooth]     = useState(0.72);
+  const [cyXoverSL,    setCyXoverSL]    = useState(80);
+  const [cyXoverLM,    setCyXoverLM]    = useState(500);
+  const [cyXoverMH,    setCyXoverMH]    = useState(4000);
+  const [cyLufsWindow, setCyLufsWindow] = useState(3);
+  const lufsAccRef       = useRef([]);
+  const [lufsAvg,        setLufsAvg]        = useState(-70);
+  const [canvasBg,       setCanvasBg]       = useState('#000000');
+  const cyAtDefaults = scopeCards.every(c=>!c.enabled) && !cyListen && cySens===0.65 && cySmooth===0.72;
   const cyCanvasRef    = useRef(null);
-  const cyPersistRef   = useRef(null);   // separate persistence buffer for phosphor/trails
-  const cySymCanvasRef = useRef(null);   // symmetry-only output (used with cySymHide)
-  const cyPartsRef     = useRef([]);
-  const cyWaterfallRef = useRef([]);     // 3D waterfall: ring buffer of waveform slices
-  const cyAutoGainRef  = useRef(1);      // running auto-gain scalar
-  const cySpinRef      = useRef(0);      // accumulated auto-spin angle
-  const cySmWfRef      = useRef(null);   // smoothed waveform (EMA)
-  const cySmSpRef      = useRef(null);   // smoothed spectrum (EMA)
-  const cyFoamTRef     = useRef(0);      // Q.Foam time accumulator
-  const cyFabBassRef   = useRef(0);      // smoothed bass for Fabric (slow EMA)
-  const cyFabRmsRef    = useRef(0);      // smoothed rms for Fabric
-  const cyFabTrebRef   = useRef(0);      // smoothed treble for Fabric
-  const cyFabMidRef    = useRef(0);      // smoothed mid for Fabric
-  const cyPostTempRef  = useRef(null);   // temp canvas for cymatic post-rotation
-  const cyAtDefaults   = !isCymatic && !cyListen && cyMode===0 && cyAmt===0.75;
+  const scopeCardCanvasRefs = useRef({});
+  const scopeDisplayCanvasRefs = useRef({});
+  const scopeOutputRef      = useRef(null);
+  const scopeSmWfRefs       = useRef({});
+  const scopeSmSpRefs       = useRef({});
+  const scopeParticlesRef   = useRef({});
+  const scopePersistRef     = useRef({});
 
   // ── Pin Matrix: audPins[source][target] = true/false ─────────────────────────
   // Sources: bass mid treble peak rms beat lufs lfo1 lfo2 lfo3 lfo4
@@ -2985,15 +2946,10 @@ export default function Morphology(){
       halftoneEnabled,halftoneSize,
       smearEnabled,smearAmt,smearAngle,
       dotMatrixEnabled,dotMatrixSize,
-      isCymatic,cyMode,cyBlend,cyAmt,cySmooth,cySens,cyColor,cyColorMode,
-      cyMirror,cyFill,cyGlow,
-      cyHideCanvas,cyFreqLo,cyFreqHi,cyFreqHz,cyFreqLoHz,cyFreqHiHz,cyLissMode,cyScopeDecay,cyScopeLine,
-      canvasBg,
-      cyXoverSL,cyXoverLM,cyXoverMH,cyLufsWindow,
-      cyRender,cyAutoGain,cyStereoWidth,cyPhaseOff,cyTrails,cyScopeZoom,cyScopeRot,
-      cySymLink,cySymApply,cySymHide,cyGridlines,cyInvert,cyGlowAmt,cyXYSwap,cyFreqBands,cySpinRate,cyWarpAmt,cyNoise,cyDecay,cyFracStyle,cyPrisLink,cyFluxLink,
-      cyLiquidMode,cyFoamSpeed,cyFoamScale,cyFoamLayers,cyFoamFlow,cyFoamThresh,cyFoamBlend,
+      cySens,cySmooth,cyFreqLo,cyFreqHi,cyFreqHz,cyFreqLoHz,cyFreqHiHz,
+      cyXoverSL,cyXoverLM,cyXoverMH,cyLufsWindow,cyHideCanvas,canvasBg,
     };
+    scopeCardsRef.current=scopeCards;
   });
 
   const alchPhaseRef=useRef(0);
