@@ -7015,8 +7015,8 @@ export default function Morphology(){
             <div className="flex gap-1">{[0.5,1,2].map(sc=>(<button key={sc} onClick={()=>openPopout(sc)} className="px-1.5 h-7 rounded-lg border text-[6px] font-black uppercase bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300 transition-all">{sc}×</button>))}</div>
             <div className="w-px h-6 bg-zinc-800"/>
             <div className="text-right leading-none">
-              <div className="text-[7px] font-black text-zinc-700 uppercase tracking-wider">Alpha</div>
-              <div className="text-[8px] font-black text-zinc-500 tracking-tight">Build 842</div>
+              <div className="pre-beta-shine text-[10px] font-black uppercase tracking-wider">PRE-BETA</div>
+              <div className="text-[11px] font-black text-zinc-500 tracking-tight">Build 855</div>
             </div>
           </div>
         </div>

@@ -1,1 +1,15 @@
 @import "tailwindcss";
+
+@keyframes pre-beta-shine {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.pre-beta-shine {
+  background: linear-gradient(90deg, #f59e0b 30%, #fef3c7 50%, #f59e0b 70%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pre-beta-shine 2.5s linear infinite;
+}
