@@ -2896,8 +2896,10 @@ function ScopeCardBack({ card, onChange, onFlip }) {
 }
 
 function ScopeCardControls({ card, onChange, col, enabled }) {
-  const sl=(label,key,min,max,step,def)=>(
-    <div style={{marginBottom:5}}>
+  const { id } = card;
+
+  const sl = (label, key, min, max, step, def) => (
+    <div key={key} style={{marginBottom:5}}>
       <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
         <span style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.1em',color:'#52525b'}}>{label}</span>
         <span style={{fontSize:6,fontWeight:900,color:enabled?col:'#52525b',fontVariantNumeric:'tabular-nums'}}>{Math.round(card[key]*100)}%</span>
@@ -2906,26 +2908,63 @@ function ScopeCardControls({ card, onChange, col, enabled }) {
         onChange={v=>onChange({[key]:v})} color={card.color} enabled={enabled}/>
     </div>
   );
-  const tog=(label,key)=>(
+
+  const tog = (label, key) => (
     <button key={key} onClick={()=>onChange({[key]:!card[key]})} style={{
-      flex:1, padding:'3px 0', borderRadius:5, fontSize:6, fontWeight:900,
-      textTransform:'uppercase', cursor:'pointer',
-      background: card[key] ? (enabled?`${card.color}22`:'rgba(60,60,60,0.2)') : 'rgba(0,0,0,0.3)',
-      border: `1px solid ${card[key]?(enabled?card.color+'55':'#52525b'):'#3f3f46'}`,
-      color: card[key] ? (enabled?card.color:'#a1a1aa') : '#52525b',
+      flex:1,padding:'3px 0',borderRadius:5,fontSize:6,fontWeight:900,
+      textTransform:'uppercase',cursor:'pointer',
+      background:card[key]?(enabled?`${card.color}22`:'rgba(60,60,60,0.2)'):'rgba(0,0,0,0.3)',
+      border:`1px solid ${card[key]?(enabled?card.color+'55':'#52525b'):'#3f3f46'}`,
+      color:card[key]?(enabled?card.color:'#a1a1aa'):'#52525b',
     }}>{label}</button>
   );
 
-  return (
-    <>
-      {sl('Sensitivity','sens',0.1,2,0.01,0.65)}
-      {sl('Smooth','smooth',0,0.97,0.01,0.5)}
-      {sl('Intensity','intensity',0,1,0.01,0.75)}
-      <div style={{display:'flex',gap:3,marginBottom:5}}>
-        {tog('Glow','glow')}
+  const lineStyleRow = () => (
+    <div style={{marginBottom:5}}>
+      <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.1em',color:'#52525b',marginBottom:3}}>Line Style</div>
+      <div style={{display:'flex',gap:3}}>
+        {['line','thick','fill'].map(v=>(
+          <button key={v} onClick={()=>onChange({lineStyle:v})} style={{
+            flex:1,padding:'2px 0',borderRadius:4,fontSize:6,fontWeight:900,textTransform:'uppercase',cursor:'pointer',
+            background:card.lineStyle===v?(enabled?`${card.color}22`:'rgba(60,60,60,0.2)'):'rgba(0,0,0,0.3)',
+            border:`1px solid ${card.lineStyle===v?(enabled?card.color+'55':'#52525b'):'#3f3f46'}`,
+            color:card.lineStyle===v?(enabled?card.color:'#a1a1aa'):'#52525b',
+          }}>{v}</button>
+        ))}
       </div>
-    </>
+    </div>
   );
+
+  const sharedSignal = <>
+    {sl('Sensitivity','sens',0.1,2,0.01,0.65)}
+    {sl('Smooth','smooth',0,0.97,0.01,0.5)}
+    {sl('Intensity','intensity',0,1,0.01,0.75)}
+  </>;
+
+  const glowToggle = <div style={{display:'flex',gap:3,marginBottom:5}}>{tog('Glow','glow')}</div>;
+
+  if (id === 'vscope' || id === 'polar') return <>{sharedSignal}{lineStyleRow()}<div style={{display:'flex',gap:3,marginBottom:5}}>{tog('Mirror','mirror')}{tog('Glow','glow')}</div></>;
+  if (id === 'wave3d') return <>{sharedSignal}{sl('Depth','depth',0,1,0.01,0.5)}<div style={{display:'flex',gap:3,marginBottom:5}}>{tog('Grid','grid')}{tog('Glow','glow')}</div></>;
+  if (id === 'phosphor') return <>{sharedSignal}{sl('Persistence','persistence',0,0.99,0.01,0.7)}{sl('Glow Amt','glowAmt',0,1,0.01,0.8)}{glowToggle}</>;
+  if (id === 'spectral') return <>{sharedSignal}{sl('Orbit Speed','orbitSpeed',0,1,0.01,0.5)}{sl('Trail Length','trailLen',0,0.99,0.01,0.5)}{sl('Freq Lo','freqLo',0,1,0.01,0)}{sl('Freq Hi','freqHi',0,1,0.01,1)}{glowToggle}</>;
+  if (id === 'particles') return <>{sharedSignal}{sl('Count','count',0,1,0.01,0.5)}{sl('Size','size',0,1,0.01,0.5)}{sl('Decay','decay',0,1,0.01,0.5)}{glowToggle}</>;
+  if (id === 'diff') return <>{sharedSignal}{lineStyleRow()}<div style={{display:'flex',gap:3,marginBottom:5}}>{tog('Invert','invert')}{tog('Glow','glow')}</div></>;
+  if (id === 'fractal') {
+    return <>{sharedSignal}{sl('Iterations','iterations',0,1,0.01,0.5)}
+      <div style={{marginBottom:5}}>
+        <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',color:'#52525b',marginBottom:3}}>Style</div>
+        <div style={{display:'flex',gap:3}}>{[0,1,2,3,4].map(n=>(
+          <button key={n} onClick={()=>onChange({fracStyle:n})} style={{flex:1,padding:'2px 0',borderRadius:4,fontSize:7,fontWeight:900,cursor:'pointer',
+            background:card.fracStyle===n?(enabled?`${card.color}22`:'rgba(60,60,60,0.2)'):'rgba(0,0,0,0.3)',
+            border:`1px solid ${card.fracStyle===n?(enabled?card.color+'55':'#52525b'):'#3f3f46'}`,
+            color:card.fracStyle===n?(enabled?card.color:'#a1a1aa'):'#52525b',
+          }}>{n+1}</button>
+        ))}</div>
+      </div>{glowToggle}</>;
+  }
+  if (id === 'neural') return <>{sharedSignal}{sl('Node Size','nodeSize',0,1,0.01,0.5)}{sl('Edge Opacity','edgeOpacity',0,1,0.01,0.5)}{glowToggle}</>;
+  if (id === 'shard') return <>{sharedSignal}{sl('Shard Count','shardCount',0,1,0.01,0.5)}<div style={{display:'flex',gap:3,marginBottom:5}}>{tog('Invert','invert')}{tog('Glow','glow')}</div></>;
+  return sharedSignal;
 }
 
 function SplashScreen({onDone}){
