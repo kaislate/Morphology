@@ -2451,6 +2451,315 @@ const DraggableEngineGrid=({order,setOrder,renderCard})=>{
 // Draw function dispatch — populated in Tasks 5-7
 const SCOPE_DRAW = {};
 
+function drawVScope(ctx, W, H, wf, sp, bus, card) {
+  const { color, sens, intensity, glow, lineStyle, mirror } = card;
+  const N = wf.length; if (!N) return;
+  const amp = sens * intensity * (H / 2);
+  ctx.save();
+  if (glow) { ctx.shadowBlur = 12; ctx.shadowColor = color; }
+  ctx.strokeStyle = color; ctx.lineWidth = lineStyle === 'thick' ? 2.5 : 1.5;
+  ctx.beginPath();
+  for (let i = 0; i < N; i++) {
+    const x = (i / (N - 1)) * W;
+    const y = H / 2 - wf[i] * amp;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  if (mirror) {
+    ctx.scale(1, -1); ctx.translate(0, -H);
+    ctx.globalAlpha = 0.35;
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+      const x = (i / (N - 1)) * W;
+      const y = H / 2 - wf[i] * amp;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+SCOPE_DRAW['vscope'] = drawVScope;
+
+function drawPolar(ctx, W, H, wf, sp, bus, card) {
+  const { color, sens, intensity, glow, lineStyle, mirror } = card;
+  const N = wf.length; if (!N) return;
+  const cx = W / 2, cy = H / 2;
+  const baseR = Math.min(W, H) * 0.28;
+  const amp = sens * intensity * baseR * 1.8;
+  ctx.save();
+  if (glow) { ctx.shadowBlur = 14; ctx.shadowColor = color; }
+  ctx.strokeStyle = color; ctx.lineWidth = lineStyle === 'thick' ? 2 : 1.5;
+  ctx.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const idx = i % N;
+    const angle = (idx / N) * Math.PI * 2 - Math.PI / 2;
+    const r = baseR + wf[idx] * amp;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath(); ctx.stroke();
+  if (mirror) {
+    ctx.globalAlpha = 0.3; ctx.scale(-1, 1); ctx.translate(-W, 0);
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const idx = i % N;
+      const angle = (idx / N) * Math.PI * 2 - Math.PI / 2;
+      const r = baseR + wf[idx] * amp;
+      const x = cx + Math.cos(angle) * r;
+      const y = cy + Math.sin(angle) * r;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.closePath(); ctx.stroke();
+  }
+  ctx.restore();
+}
+SCOPE_DRAW['polar'] = drawPolar;
+
+function draw3DWave(ctx, W, H, wf, sp, bus, card) {
+  const { color, sens, intensity, glow, depth, grid } = card;
+  const N = wf.length; if (!N) return;
+  const layers = 18;
+  const amp = sens * intensity * (H / 3.5);
+  ctx.save();
+  if (grid) {
+    ctx.strokeStyle = '#ffffff18'; ctx.lineWidth = 0.5;
+    for (let l = 0; l < layers; l++) {
+      const oy = (H * 0.15) + (l / (layers - 1)) * (H * 0.6);
+      ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke();
+    }
+  }
+  for (let l = 0; l < layers; l++) {
+    const t = l / (layers - 1);
+    const oy = (H * 0.15) + t * (H * 0.6);
+    const alpha = 0.15 + t * 0.7;
+    const depthScale = 0.4 + t * 0.6 * (depth * 2);
+    if (glow) { ctx.shadowBlur = 8 * t; ctx.shadowColor = color; }
+    ctx.strokeStyle = color; ctx.lineWidth = 0.8 + t * 1.2; ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    for (let i = 0; i < N; i++) {
+      const x = (i / (N - 1)) * W;
+      const y = oy - wf[i] * amp * depthScale;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+SCOPE_DRAW['wave3d'] = draw3DWave;
+
+function drawPhosphor(ctx, W, H, wf, sp, bus, card, persistRef) {
+  const { id, color, sens, intensity, glow, persistence, glowAmt } = card;
+  const N = wf.length; if (!N) return;
+  const amp = sens * intensity * (H / 2);
+  if (!persistRef.current[id]) {
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    persistRef.current[id] = c;
+  }
+  const pC = persistRef.current[id];
+  const pX = pC.getContext('2d');
+  pX.globalCompositeOperation = 'source-over';
+  pX.fillStyle = `rgba(0,0,0,${1 - (persistence * 0.85 + 0.05)})`;
+  pX.fillRect(0, 0, W, H);
+  pX.globalCompositeOperation = 'lighter';
+  pX.strokeStyle = color; pX.lineWidth = 1.5;
+  if (glow) { pX.shadowBlur = 16 * glowAmt; pX.shadowColor = color; }
+  pX.beginPath();
+  for (let i = 0; i < N; i++) {
+    const x = (i / (N - 1)) * W;
+    const y = H / 2 - wf[i] * amp;
+    i === 0 ? pX.moveTo(x, y) : pX.lineTo(x, y);
+  }
+  pX.stroke();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(pC, 0, 0);
+}
+SCOPE_DRAW['phosphor'] = (ctx, W, H, wf, sp, bus, card, persistRef, partsRef) =>
+  drawPhosphor(ctx, W, H, wf, sp, bus, card, persistRef);
+
+function drawSpectral(ctx, W, H, wf, sp, bus, card, persistRef, partsRef, t) {
+  const { color, sens, intensity, glow, freqLo, freqHi, orbitSpeed, trailLen } = card;
+  if (!sp || !sp.length) return;
+  const cx = W / 2, cy = H / 2;
+  const N = sp.length;
+  const lo = Math.floor((freqLo ?? 0) * N);
+  const hi = Math.ceil((freqHi ?? 1) * N);
+  const bands = hi - lo; if (bands < 1) return;
+  const baseR = Math.min(W, H) * 0.25;
+  const maxR  = Math.min(W, H) * 0.46;
+  if (!persistRef.current[card.id]) {
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    persistRef.current[card.id] = c;
+  }
+  const pC = persistRef.current[card.id];
+  const pX = pC.getContext('2d');
+  pX.fillStyle = `rgba(0,0,0,${1 - trailLen * 0.85})`;
+  pX.fillRect(0, 0, W, H);
+  const spin = t * orbitSpeed * 0.0008;
+  if (glow) { ctx.shadowBlur = 10; ctx.shadowColor = color; }
+  pX.strokeStyle = color; pX.lineWidth = 1.5;
+  pX.beginPath();
+  for (let i = 0; i < bands; i++) {
+    const angle = spin + (i / bands) * Math.PI * 2;
+    const v = sp[lo + i] / 255;
+    const r = baseR + v * (maxR - baseR) * sens * intensity;
+    const x = cx + Math.cos(angle) * r;
+    const y = cy + Math.sin(angle) * r;
+    i === 0 ? pX.moveTo(x, y) : pX.lineTo(x, y);
+  }
+  pX.closePath(); pX.stroke();
+  ctx.drawImage(pC, 0, 0);
+}
+SCOPE_DRAW['spectral'] = drawSpectral;
+
+function drawDiff(ctx, W, H, wf, sp, bus, card) {
+  const { color, sens, intensity, glow, lineStyle, invert } = card;
+  const N = wf.length; if (!N) return;
+  const amp = sens * intensity * (H / 2) * 8;
+  ctx.save();
+  if (invert) { ctx.fillStyle = '#ffffff08'; ctx.fillRect(0, 0, W, H); }
+  if (glow) { ctx.shadowBlur = 10; ctx.shadowColor = color; }
+  ctx.strokeStyle = invert ? '#000000' : color;
+  ctx.lineWidth = lineStyle === 'thick' ? 2 : 1.5;
+  ctx.beginPath();
+  for (let i = 1; i < N; i++) {
+    const x = (i / (N - 1)) * W;
+    const dy = (wf[i] - wf[i - 1]) * amp;
+    const y = H / 2 - dy;
+    i === 1 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+SCOPE_DRAW['diff'] = drawDiff;
+
+function drawParticles(ctx, W, H, wf, sp, bus, card, persistRef, partsRef) {
+  const { id, color, sens, intensity, glow, count, size, decay } = card;
+  const bass = (bus.bass || 0) * sens;
+  if (!partsRef.current[id]) partsRef.current[id] = [];
+  const parts = partsRef.current[id];
+  const maxP = Math.round(count * 180 + 20);
+  if (bass > 0.15 && parts.length < maxP) {
+    const n = Math.round(bass * 8 * intensity);
+    for (let i = 0; i < n; i++) {
+      parts.push({
+        x: W / 2 + (Math.random() - 0.5) * W * 0.4,
+        y: H / 2 + (Math.random() - 0.5) * H * 0.4,
+        vx: (Math.random() - 0.5) * bass * 4,
+        vy: (Math.random() - 0.5) * bass * 4 - bass * 1.5,
+        life: 1, r: (size * 3 + 1) * (0.5 + Math.random() * 0.5),
+      });
+    }
+  }
+  const damp = 1 - decay * 0.04;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.vx *= damp; p.life -= 0.018 + decay * 0.02;
+    if (p.life <= 0) { parts.splice(i, 1); continue; }
+    if (glow) { ctx.shadowBlur = 8; ctx.shadowColor = color; }
+    ctx.globalAlpha = p.life * intensity;
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+SCOPE_DRAW['particles'] = drawParticles;
+
+function drawFractal(ctx, W, H, wf, sp, bus, card, persistRef, partsRef, t) {
+  const { color, sens, intensity, glow, iterations } = card;
+  const bass = (bus.bass || 0) * sens;
+  const treble = (bus.treble || 0) * sens;
+  const cx = W / 2, cy = H / 2;
+  const depth = Math.round(iterations * 5 + 3);
+  const baseLen = Math.min(W, H) * 0.28 * (0.5 + bass * 0.8);
+  if (glow) { ctx.shadowBlur = 14; ctx.shadowColor = color; }
+  ctx.strokeStyle = color; ctx.lineWidth = 1;
+  function branch(x, y, angle, len, d) {
+    if (d === 0 || len < 1) return;
+    const ex = x + Math.cos(angle) * len;
+    const ey = y + Math.sin(angle) * len;
+    ctx.globalAlpha = (d / depth) * intensity;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke();
+    const spread = (Math.PI / 4) + treble * 0.5;
+    const wave = Math.sin(t * 0.001 + d) * 0.3 * bass;
+    branch(ex, ey, angle - spread + wave, len * 0.65, d - 1);
+    branch(ex, ey, angle + spread + wave, len * 0.65, d - 1);
+  }
+  branch(cx, cy + baseLen * 0.8, -Math.PI / 2, baseLen, depth);
+  ctx.globalAlpha = 1;
+}
+SCOPE_DRAW['fractal'] = drawFractal;
+
+function drawNeural(ctx, W, H, wf, sp, bus, card, persistRef, partsRef, t) {
+  const { color, sens, intensity, glow, nodeSize, edgeOpacity } = card;
+  const bass = (bus.bass || 0) * sens;
+  const mid  = (bus.mid  || 0) * sens;
+  const treble=(bus.treble||0)*sens;
+  if (!partsRef.current[card.id]) {
+    partsRef.current[card.id] = Array.from({length:20},()=>({
+      x: Math.random()*W, y: Math.random()*H,
+      vx:(Math.random()-.5)*0.4, vy:(Math.random()-.5)*0.4,
+    }));
+  }
+  const nodes = partsRef.current[card.id];
+  const speed = 0.4 + bass * 2;
+  nodes.forEach(n=>{
+    n.x += n.vx * speed; n.y += n.vy * speed;
+    if(n.x<0||n.x>W) n.vx*=-1;
+    if(n.y<0||n.y>H) n.vy*=-1;
+  });
+  const maxDist = 60 + mid * 80;
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[j].x - nodes[i].x, dy = nodes[j].y - nodes[i].y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if (dist < maxDist) {
+        const alpha = (1 - dist / maxDist) * edgeOpacity * intensity;
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = color; ctx.lineWidth = 0.8 + treble;
+        if(glow){ctx.shadowBlur=6;ctx.shadowColor=color;}
+        ctx.beginPath(); ctx.moveTo(nodes[i].x,nodes[i].y); ctx.lineTo(nodes[j].x,nodes[j].y); ctx.stroke();
+      }
+    }
+  }
+  const r = nodeSize * 5 + 2 + bass * 4;
+  nodes.forEach(n=>{
+    ctx.globalAlpha = 0.7 * intensity;
+    ctx.fillStyle = color;
+    if(glow){ctx.shadowBlur=10;ctx.shadowColor=color;}
+    ctx.beginPath(); ctx.arc(n.x,n.y,r,0,Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha=1;
+}
+SCOPE_DRAW['neural'] = drawNeural;
+
+function drawShard(ctx, W, H, wf, sp, bus, card, persistRef, partsRef, t) {
+  const { color, sens, intensity, glow, shardCount, invert } = card;
+  const bass   = (bus.bass   || 0) * sens;
+  const treble = (bus.treble || 0) * sens;
+  const rms    = (bus.rms    || 0) * sens;
+  const cx = W / 2, cy = H / 2;
+  const count = Math.round(shardCount * 12 + 4);
+  if (invert) { ctx.fillStyle = '#ffffff06'; ctx.fillRect(0, 0, W, H); }
+  if (glow) { ctx.shadowBlur = 12; ctx.shadowColor = color; }
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2 + t * 0.0004 + bass * 0.5;
+    const r1 = (0.15 + rms * 0.2 + bass * 0.15) * Math.min(W, H);
+    const r2 = r1 * (0.3 + treble * 0.5 + Math.random() * 0.2);
+    const spread = (Math.PI / count) * (0.3 + intensity * 0.5);
+    ctx.globalAlpha = (0.4 + bass * 0.5) * intensity;
+    ctx.strokeStyle = color; ctx.lineWidth = 1 + bass * 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle - spread) * r1, cy + Math.sin(angle - spread) * r1);
+    ctx.lineTo(cx + Math.cos(angle) * r2, cy + Math.sin(angle) * r2);
+    ctx.lineTo(cx + Math.cos(angle + spread) * r1, cy + Math.sin(angle + spread) * r1);
+    ctx.closePath(); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+SCOPE_DRAW['shard'] = drawShard;
+
 const SCOPE_CARD_SIZE = 200;
 
 const BLEND_MODES = [
