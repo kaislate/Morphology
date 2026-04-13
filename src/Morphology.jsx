@@ -2516,34 +2516,59 @@ function drawPolar(ctx, W, H, wf, sp, bus, card) {
 }
 SCOPE_DRAW['polar'] = drawPolar;
 
-function draw3DWave(ctx, W, H, wf, sp, bus, card) {
-  const { color, sens, intensity, glow, depth, grid } = card;
+function draw3DWave(ctx, W, H, wf, sp, bus, card, persistRef, partsRef) {
+  const { id, color, sens, intensity, glow, depth, grid } = card;
   const N = wf.length; if (!N) return;
-  const layers = 18;
-  const amp = sens * intensity * (H / 3.5);
+  const CX = W / 2, CY = H / 2;
+
+  // Ring buffer of waveform slices (stored in partsRef keyed by card id)
+  const bufKey = id + '_wf';
+  if (!partsRef.current[bufKey]) partsRef.current[bufKey] = [];
+  const buf = partsRef.current[bufKey];
+  const maxSlices = 40;
+  buf.unshift(Array.from(wf));
+  if (buf.length > maxSlices) buf.pop();
+
   ctx.save();
+
+  // Optional grid lines
   if (grid) {
-    ctx.strokeStyle = '#ffffff18'; ctx.lineWidth = 0.5;
-    for (let l = 0; l < layers; l++) {
-      const oy = (H * 0.15) + (l / (layers - 1)) * (H * 0.6);
+    ctx.strokeStyle = '#ffffff12'; ctx.lineWidth = 0.5;
+    for (let l = 0; l < 8; l++) {
+      const oy = (H * 0.2) + (l / 7) * (H * 0.5);
       ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke();
     }
   }
-  for (let l = 0; l < layers; l++) {
-    const t = l / (layers - 1);
-    const oy = (H * 0.15) + t * (H * 0.6);
-    const alpha = 0.15 + t * 0.7;
-    const depthScale = 0.4 + t * 0.6 * (depth * 2);
-    if (glow) { ctx.shadowBlur = 8 * t; ctx.shadowColor = color; }
-    ctx.strokeStyle = color; ctx.lineWidth = 0.8 + t * 1.2; ctx.globalAlpha = alpha;
+
+  // Perspective waterfall — time as Z axis, newest slice in front
+  const fov = 420 * (0.6 + depth * 0.8);
+  const baseY = CY * 1.1;
+  const SC = sens * intensity * CX;
+
+  for (let si = buf.length - 1; si >= 0; si--) {
+    const slice = buf[si];
+    const zFrac = si / maxSlices;
+    const z = zFrac * 500 + 80;
+    const perspective = fov / (fov + z);
+    const yOff = baseY - (baseY * 0.7 * perspective);
+    const xScale = perspective * SC * 1.2;
+    const alpha = (1 - zFrac * 0.7) * intensity * 0.85;
+
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(0.4, 1.4 * perspective);
+    if (glow) { ctx.shadowBlur = (1 - zFrac) * 8 + (bus.rms || 0) * 6; ctx.shadowColor = color; }
+
     ctx.beginPath();
-    for (let i = 0; i < N; i++) {
-      const x = (i / (N - 1)) * W;
-      const y = oy - wf[i] * amp * depthScale;
+    const SN = Math.min(slice.length, 256);
+    for (let i = 0; i < SN; i++) {
+      const x = CX + (i / (SN - 1) * 2 - 1) * xScale;
+      const y = yOff - slice[i] * perspective * CX * 0.5;
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     }
     ctx.stroke();
   }
+
   ctx.restore();
 }
 SCOPE_DRAW['wave3d'] = draw3DWave;
@@ -5939,7 +5964,29 @@ export default function Morphology(){
 
   // ── AUDIOFX panel ─────────────────────────────────────────────────────────
   const audioFX=(
-    <div className="grid gap-4" style={{gridTemplateColumns:'220px minmax(0,1fr) 300px'}}>
+    <div className="space-y-4">
+      {/* ── Scope Cards Row (full width) ───────────────────────────────── */}
+      <div style={{
+        overflowX:'auto', overflowY:'visible',
+        paddingBottom:8, paddingTop:4,
+      }}>
+        <div style={{display:'flex',gap:10,width:'max-content',minWidth:'100%'}}>
+          {scopeCards.map(card=>(
+            <div key={card.id} style={{position:'relative',width:SCOPE_CARD_SIZE,height:SCOPE_CARD_SIZE,flexShrink:0}}>
+              <ScopeCard
+                card={card}
+                canvasRefCallback={canvasRefCallback}
+                onToggle={()=>setScopeCard(card.id,{enabled:!card.enabled})}
+                onFlip={()=>setScopeCard(card.id,{flipped:!card.flipped})}
+                setScopeCard={setScopeCard}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Controls Row ───────────────────────────────────────────────── */}
+      <div className="grid gap-4" style={{gridTemplateColumns:'220px minmax(0,1fr)'}}>
 
         {/* ── Column 1: Input + Levels ─────────────────────────────────── */}
         <div className="space-y-3">
@@ -6078,8 +6125,8 @@ export default function Morphology(){
           </div>
         </div>
 
-        {/* ── Column 2: LFO Bank + Pin Matrix ──────────────────────────── */}
-        <div className="space-y-3">
+        {/* ── Column 2: LFO Bank + Pin Matrix (temporarily hidden) ────── */}
+        {false && <div className="space-y-3">
 
           {/* LFO Bank — Ableton-style: waveform preview + playhead per LFO */}
           <div className="border border-zinc-800 rounded-xl p-3 bg-zinc-950">
@@ -6211,43 +6258,24 @@ export default function Morphology(){
             })}
           </div>
 
-        </div>
+        </div>}
 
-        {/* ── Scope Cards ─────────────────────────────────────────────────── */}
-        <div style={{
-          overflowX:'auto', overflowY:'visible',
-          paddingBottom:8, paddingTop:4,
-          marginTop:4,
-        }}>
-          <div style={{display:'flex',gap:10,width:'max-content',minWidth:'100%'}}>
-            {scopeCards.map(card=>(
-              <div key={card.id} style={{position:'relative',width:SCOPE_CARD_SIZE,height:SCOPE_CARD_SIZE,flexShrink:0}}>
-                <ScopeCard
-                  card={card}
-                  canvasRefCallback={canvasRefCallback}
-                  onToggle={()=>setScopeCard(card.id,{enabled:!card.enabled})}
-                  onFlip={()=>setScopeCard(card.id,{flipped:!card.flipped})}
-                  setScopeCard={setScopeCard}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+      </div>{/* end grid */}
 
-        {/* Reset */}
-        <div className="mt-2">
-          <button onClick={()=>{
-            stopAudio();
-            setScopeCards(prev=>prev.map(c=>({...c,enabled:false,flipped:false,blend:'screen',sens:0.65,smooth:0.5,intensity:0.75,glow:true})));
-            setAudPins(()=>{const m={};AUD_SOURCES.forEach(s=>{m[s]={};AUD_TARGETS.forEach(t=>{m[s][t]=false;});});return m;});
-            setLfos([{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:1},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:2},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:4},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:8}]);
-            setCyResetFlash(true); setTimeout(()=>setCyResetFlash(false),300);
-          }}
-            disabled={cyAtDefaults}
-            className={`w-full py-1.5 rounded-xl border text-[7px] font-black uppercase tracking-widest transition-all ${cyResetFlash?'bg-cyan-900 border-cyan-800 text-cyan-300':!cyAtDefaults?'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600':'bg-zinc-900 border-zinc-800 text-zinc-700 opacity-40 cursor-not-allowed'}`}>RESET AUDIOFX</button>
-        </div>
-
+      {/* Reset */}
+      <div>
+        <button onClick={()=>{
+          stopAudio();
+          setScopeCards(prev=>prev.map(c=>({...c,enabled:false,flipped:false,blend:'screen',sens:0.65,smooth:0.5,intensity:0.75,glow:true})));
+          setAudPins(()=>{const m={};AUD_SOURCES.forEach(s=>{m[s]={};AUD_TARGETS.forEach(t=>{m[s][t]=false;});});return m;});
+          setLfos([{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:1},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:2},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:4},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:8}]);
+          setCyResetFlash(true); setTimeout(()=>setCyResetFlash(false),300);
+        }}
+          disabled={cyAtDefaults}
+          className={`w-full py-1.5 rounded-xl border text-[7px] font-black uppercase tracking-widest transition-all ${cyResetFlash?'bg-cyan-900 border-cyan-800 text-cyan-300':!cyAtDefaults?'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600':'bg-zinc-900 border-zinc-800 text-zinc-700 opacity-40 cursor-not-allowed'}`}>RESET AUDIOFX</button>
       </div>
+
+    </div>
   );
 
   const coreFX=(()=>{
