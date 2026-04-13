@@ -2448,7 +2448,40 @@ const DraggableEngineGrid=({order,setOrder,renderCard})=>{
 };
 
 
+function SplashScreen({onDone}){
+  const [fading,setFading]=useState(false);
+  useEffect(()=>{
+    const showTimer=setTimeout(()=>setFading(true),5800);
+    const doneTimer=setTimeout(()=>onDone(),6600);
+    return()=>{clearTimeout(showTimer);clearTimeout(doneTimer);};
+  },[onDone]);
+  return(
+    <div style={{
+      position:'fixed',inset:0,zIndex:9999,
+      display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:24,
+      background:'#09090b',
+      opacity:fading?0:1,
+      transition:'opacity 0.8s ease-out',
+      pointerEvents:fading?'none':'all',
+    }}>
+      <img src="/morphology_logo_M_1.gif" alt="Morphology logo"
+        style={{width:220,height:220,objectFit:'contain'}}/>
+      <div style={{textAlign:'center',lineHeight:1}}>
+        <div style={{
+          fontSize:48,fontWeight:900,letterSpacing:'-0.03em',
+          textTransform:'uppercase',color:'#e4e4e7',fontStyle:'italic',
+        }}>MORPHOLOGY</div>
+        <div className="pre-beta-shine" style={{
+          fontSize:13,fontWeight:900,letterSpacing:'0.25em',
+          textTransform:'uppercase',marginTop:10,
+        }}>PRE-BETA</div>
+      </div>
+    </div>
+  );
+}
+
 export default function Morphology(){
+  const [showSplash,setShowSplash]=useState(true);
   const [isPortrait,setIsPortrait]=useState(false);
   const [collapsed,setCollapsed]=useState({transform:true,symmetry:true,glyph:true,entropy:true,prismatic:true,flux:true,glitch:true,retro:true,warp:true,field:true,ascii:true});
   const toggleCollapse=id=>setCollapsed(c=>({...c,[id]:!c[id]}));
@@ -6980,6 +7013,7 @@ export default function Morphology(){
 
   return(
     <div style={{fontFamily:'monospace'}} className="flex flex-col items-center min-h-screen bg-zinc-950 text-zinc-100 overflow-auto">
+      {showSplash&&<SplashScreen onDone={()=>setShowSplash(false)}/>}
       <GlobalStyles/>
 
       {/* ── TOPBAR ────────────────────────────────────────────────────────── */}
