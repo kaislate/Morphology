@@ -5959,9 +5959,9 @@ export default function Morphology(){
                   className={`w-7 h-7 rounded-lg flex items-center justify-center border text-[7px] font-black transition-all ${cyHideCanvas?'bg-zinc-900 border-zinc-400 text-white':'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-500'}`}>
                   <span className="text-[10px]">{cyHideCanvas?'◼':'◻'}</span>
                 </button>
-                <button onClick={()=>setIsCymatic(v=>!v)}
-                  className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all ${isCymatic?'bg-cyan-500 border-cyan-400 text-white':'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-cyan-500/50'}`}
-                  title="Enable Cymatics visualiser">
+                <button onClick={()=>{const anyOn=scopeCards.some(c=>c.enabled);setScopeCards(prev=>prev.map(c=>({...c,enabled:!anyOn})));}}
+                  className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all ${scopeCards.some(c=>c.enabled)?'bg-cyan-500 border-cyan-400 text-white':'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-cyan-500/50'}`}
+                  title="Toggle all scope cards">
                   <span style={{width:12,height:12}}><I.Activity /></span>
                 </button>
               </div>
