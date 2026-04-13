@@ -3339,6 +3339,9 @@ export default function Morphology(){
   const cyCanvasRef    = useRef(null);
   const scopeCardCanvasRefs = useRef({});
   const scopeDisplayCanvasRefs = useRef({});
+  const canvasRefCallback = useCallback((id, el) => {
+    scopeDisplayCanvasRefs.current[id] = el;
+  }, []);
   const scopeOutputRef      = useRef(null);
   const scopeSmWfRefs       = useRef({});
   const scopeSmSpRefs       = useRef({});
@@ -6210,142 +6213,38 @@ export default function Morphology(){
 
         </div>
 
-        {/* ── Column 3: Vectorscope / Cymatics ──────────────────────────── */}
-        <div className={`border rounded-xl p-3 ${isCymatic?'bg-cyan-950/20 border-cyan-400/40':'bg-zinc-950 border-zinc-800'}`}>
-          {/* Header */}
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-[9px] font-black uppercase text-zinc-400 tracking-widest">Visualizer</span>
-            <div className="flex gap-1 items-center">
-              <span className="text-[6px] font-black uppercase text-zinc-700">Blend</span>
-              {[['screen','Scr'],['add','Add'],['overlay','Ovr'],['source-over','Ovr2']].map(([val,lbl])=>(
-                <button key={val} onClick={()=>setCyBlend(val)}
-                  className={`px-1 py-0.5 rounded border text-[5px] font-black uppercase transition-all ${cyBlend===val?(isCymatic?'bg-cyan-500 border-cyan-400 text-white':'bg-zinc-800 border-cyan-400/50 text-cyan-300'):'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600'}`}>{lbl}</button>
-              ))}
-            </div>
-          </div>
-
-          {/* Mode grid */}
-          <div className="grid grid-cols-4 gap-1 mb-2">
-            {[['VScope',0],['Polar',1],['3D Wave',2],['Phosphor',3],['Spc Orbit',4],['Particles',5],['Diffrnl',6],['Fractal',7],['Neural',8],['Shard',9]].map(([lbl,id])=>(
-              <button key={id} onClick={()=>setCyMode(id)}
-                className={`py-1 rounded border text-[5px] font-black uppercase leading-tight transition-all ${cyMode===id?(isCymatic?'bg-cyan-500 border-cyan-400 text-white':'bg-zinc-800 border-cyan-400/60 text-cyan-300'):'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600'}`}>{lbl}</button>
+        {/* ── Scope Cards ─────────────────────────────────────────────────── */}
+        <div style={{
+          overflowX:'auto', overflowY:'visible',
+          paddingBottom:8, paddingTop:4,
+          marginTop:4,
+        }}>
+          <div style={{display:'flex',gap:10,width:'max-content',minWidth:'100%'}}>
+            {scopeCards.map(card=>(
+              <div key={card.id} style={{position:'relative',width:SCOPE_CARD_SIZE,height:SCOPE_CARD_SIZE,flexShrink:0}}>
+                <ScopeCard
+                  card={card}
+                  canvasRefCallback={canvasRefCallback}
+                  onToggle={()=>setScopeCard(card.id,{enabled:!card.enabled})}
+                  onFlip={()=>setScopeCard(card.id,{flipped:!card.flipped})}
+                  setScopeCard={setScopeCard}
+                />
+              </div>
             ))}
           </div>
-          {(()=>{
-            // ── Per-mode capability map ────────────────────────────────────────
-            // Defines which controls are meaningful for each mode.
-            const m=cyMode;
-            const hasWaveform    =[0,1,2,3,4,6,9].includes(m); // uses L/R waveform
-            const hasSpectrum    =[4,5,7,8].includes(m);        // uses FFT spectrum
-            const hasTrails      =[0,1,3,4,6,7,8,9].includes(m); // pCtx persistence
-            const hasDecay       =[0,1,3,4,6,7,8,9].includes(m);
-            const hasBands       =[0,1,6].includes(m);           // multi-band phase echoes
-            const hasWidth       =[0,1,2,3,6,9].includes(m);     // stereo width matters
-            const hasPhase       =[0,1,2,3,6,9].includes(m);     // phase offset
-            const hasFreqWindow  =[4,5,7,8].includes(m);         // spectrum window
-            const hasMirror      =[0,1,2,3,4,6,9].includes(m);
-            const hasFill        =[0,1,3,6].includes(m);
-            const hasWarp        =[0,1,3,4,6,9].includes(m);     // barrel warp
-            const hasSpin        =true;                           // all modes
-            const hasNoise       =[0,1,3,4,6,9].includes(m);
-            const dim=(has)=>has?'':'opacity-40 pointer-events-none select-none';
-            return(<>
-            {/* ── Signal ── */}
-            <div className="border border-zinc-800/60 rounded-lg p-2 mb-2 space-y-1.5">
-              <div className="flex gap-1 mb-1">
-                <span className="text-[6px] font-black uppercase text-zinc-600 self-center flex-1">Signal</span>
-                <button onClick={()=>setCyAutoGain(v=>!v)} className={`px-2 py-0.5 rounded border text-[5.5px] font-black uppercase transition-all ${cyAutoGain?(isCymatic?'bg-cyan-500 border-cyan-400 text-white':'bg-zinc-700 border-cyan-400/50 text-cyan-300'):'bg-zinc-900 border-zinc-700 text-zinc-500'}`}>Auto Gain</button>
-                <button onClick={()=>setCyXYSwap(v=>!v)} className={`px-2 py-0.5 rounded border text-[5.5px] font-black uppercase transition-all ${cyXYSwap?(isCymatic?'bg-cyan-500 border-cyan-400 text-white':'bg-zinc-700 border-cyan-400/50 text-cyan-300'):'bg-zinc-900 border-zinc-700 text-zinc-500'}`}>X/Y Swap</button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className={dim(hasWidth)}><div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Width</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{Math.round(cyStereoWidth*100)}%</span></div><FSlider value={cyStereoWidth} min={0} max={1} step={0.01} defaultVal={0.5} onChange={setCyStereoWidth} color="#06b6d4" enabled={isCymatic}/></div>
-                <div className={dim(hasPhase)}><div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Phase</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{Math.round(cyPhaseOff*360)}°</span></div><FSlider value={cyPhaseOff} min={0} max={1} step={0.01} defaultVal={0.25} onChange={setCyPhaseOff} color="#06b6d4" enabled={isCymatic}/></div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className={dim(hasWaveform||hasFreqWindow)}><div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Freq Window</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{cyFreqHz?(cyFreqLoHz>=1000?`${(cyFreqLoHz/1000).toFixed(0)}k`:`${cyFreqLoHz}`)+'–'+(cyFreqHiHz>=1000?`${(cyFreqHiHz/1000).toFixed(0)}k`:`${cyFreqHiHz}`)+'Hz':`${Math.round(cyFreqLo*100)}–${Math.round(cyFreqHi*100)}%`}</span></div><RangeSlider lo={cyFreqHz?Math.log10(Math.max(20,cyFreqLoHz))/Math.log10(20000):cyFreqLo} hi={cyFreqHz?Math.log10(Math.max(20,cyFreqHiHz))/Math.log10(20000):cyFreqHi} onLoChange={v=>cyFreqHz?setCyFreqLoHz(Math.round(Math.pow(10,v*Math.log10(20000)))):setCyFreqLo(v)} onHiChange={v=>cyFreqHz?setCyFreqHiHz(Math.round(Math.pow(10,v*Math.log10(20000)))):setCyFreqHi(v)} color="#06b6d4" enabled={isCymatic}/></div>
-                <div><div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Intensity</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{Math.round(cyAmt*100)}%</span></div><FSlider value={cyAmt} min={0} max={1} step={0.01} defaultVal={0.75} onChange={setCyAmt} color="#06b6d4" enabled={isCymatic}/></div>
-              </div>
-              <div><div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Smooth</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{cySmooth===0?'Raw':cySmooth<0.4?'Lo':cySmooth<0.7?'Med':'Hi'} {Math.round(cySmooth*100)}%</span></div><FSlider value={cySmooth} min={0} max={1} step={0.01} defaultVal={0.5} onChange={setCySmooth} color="#06b6d4" enabled={isCymatic}/></div>
-            </div>
+        </div>
 
-            {/* ── Render ── */}
-            <div className="border border-zinc-800/60 rounded-lg p-2 mb-2 space-y-1.5">
-              <div className="flex gap-1 mb-0.5">
-                <span className="text-[6px] font-black uppercase text-zinc-600 self-center flex-1">Render</span>
-                {[['line','Line'],['point','Dots'],['thick','Thick'],['filled','Fill']].map(([val,lbl])=>(
-                  <button key={val} onClick={()=>setCyRender(val)} className={`flex-1 py-0.5 rounded border text-[5.5px] font-black uppercase transition-all ${cyRender===val?(isCymatic?'bg-cyan-500 border-cyan-400 text-white':'bg-zinc-800 border-cyan-400/50 text-cyan-300'):'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600'}`}>{lbl}</button>
-                ))}
-              </div>
-              <div className="grid grid-cols-3 gap-1">
-                {[['Glow',cyGlow,()=>setCyGlow(v=>!v),true],['Mirror',cyMirror,()=>setCyMirror(v=>!v),hasMirror],['Grid',cyGridlines,()=>setCyGridlines(v=>!v),true],['Invert',cyInvert,()=>setCyInvert(v=>!v),true]].map(([lbl,on,fn,has])=>(
-                  <button key={lbl} onClick={has?fn:undefined} className={`py-0.5 rounded border text-[5.5px] font-black uppercase transition-all ${!has?'opacity-40 cursor-default':''} ${on&&has?(isCymatic?'bg-cyan-500 border-cyan-400 text-white':'bg-zinc-800 border-cyan-400/50 text-cyan-300'):'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600'}`}>{lbl}</button>
-                ))}
-              </div>
-              {cyGlow&&(<div><div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Glow Amt</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{Math.round(cyGlowAmt*100)}%</span></div><FSlider value={cyGlowAmt} min={0} max={1} step={0.01} defaultVal={0.5} onChange={setCyGlowAmt} color="#06b6d4" enabled={isCymatic}/></div>)}
-            </div>
-
-            {/* ── Engine Links ── */}
-            <div className="border border-zinc-700/60 rounded-lg p-2 mb-2">
-              <span className="text-[6px] font-black uppercase text-zinc-500 tracking-widest block mb-1.5">Engine Links</span>
-              <div className="grid grid-cols-2 gap-1">
-                <button onClick={()=>setCySymLink(v=>!v)} className={`py-1 rounded border text-[5.5px] font-black uppercase transition-all ${cySymLink?(isCymatic?'bg-blue-600 border-blue-400 text-white':'bg-zinc-800 border-blue-400/50 text-blue-300'):'bg-zinc-900 border-zinc-700 text-zinc-500 hover:border-zinc-600'}`}>Eng Xform</button>
-                <button onClick={()=>setCySymApply(v=>!v)} className={`py-1 rounded border text-[5.5px] font-black uppercase transition-all ${cySymApply?(isCymatic?'bg-purple-600 border-purple-400 text-white':'bg-zinc-800 border-purple-400/50 text-purple-300'):'bg-zinc-900 border-zinc-700 text-zinc-500 hover:border-zinc-600'}`}>Symmetry</button>
-              </div>
-              {cySymApply&&(<div className="mt-1.5"><button onClick={()=>setCySymHide(v=>!v)} className={`w-full py-0.5 rounded border text-[5px] font-black uppercase transition-all ${cySymHide?'bg-orange-600 border-orange-400 text-white':'bg-zinc-900 border-zinc-700 text-zinc-500'}`}>Hide Src</button></div>)}
-            </div>
-
-            {/* ── Transform ── */}
-            <div className="border border-zinc-800/60 rounded-lg p-2 mb-2 space-y-1.5">
-              <span className="text-[6px] font-black uppercase text-zinc-600 block mb-1">Transform</span>
-              <div className="grid grid-cols-2 gap-2">
-                <div><div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Zoom</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{cyScopeZoom.toFixed(2)}×</span></div><FSlider value={cyScopeZoom} min={0.2} max={4.0} step={0.01} defaultVal={1.0} onChange={setCyScopeZoom} color="#06b6d4" enabled={isCymatic}/></div>
-                <div><div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Rotate</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{Math.round(cyScopeRot)}°</span></div><FSlider value={cyScopeRot} min={0} max={360} step={1} defaultVal={0} onChange={setCyScopeRot} color="#06b6d4" enabled={isCymatic}/></div>
-                <div><div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Spin</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{Math.round(cySpinRate*100)}%</span></div><FSlider value={cySpinRate} min={0} max={1} step={0.01} defaultVal={0} onChange={setCySpinRate} color="#06b6d4" enabled={isCymatic}/></div>
-                <div className={dim(hasWarp)}><div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Warp</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{Math.round(cyWarpAmt*100)}%</span></div><FSlider value={cyWarpAmt} min={0} max={1} step={0.01} defaultVal={0} onChange={setCyWarpAmt} color="#06b6d4" enabled={isCymatic}/></div>
-              </div>
-            </div>
-
-            {/* ── Fractal Style (mode 7 only) ── */}
-            {cyMode===7&&(<div className="border border-emerald-900/50 rounded-lg p-2 mb-2 bg-emerald-950/10">
-              <span className="text-[6px] font-black uppercase text-emerald-700 block mb-1.5">Fractal Style</span>
-              <div className="grid grid-cols-5 gap-1">
-                {[['Tree',0],['Coral',1],['Mandala',2],['Web',3],['Flake',4]].map(([lbl,id])=>(
-                  <button key={id} onClick={()=>setCyFracStyle(id)} className={`py-1 rounded border text-[5px] font-black uppercase leading-tight transition-all ${cyFracStyle===id?(isCymatic?'bg-emerald-500 border-emerald-400 text-white':'bg-zinc-800 border-emerald-400/60 text-emerald-300'):'bg-zinc-900 border-zinc-700 text-zinc-500 hover:border-zinc-600'}`}>{lbl}</button>
-                ))}
-              </div>
-              <p className="text-[5px] text-zinc-700 mt-1">{['Recursive tree · spectrum spread','Radial coral · chromatic arms','Mandala lace · petal rings','Plasma web · lightning mesh','Snowflake · Koch subdivision'][cyFracStyle]||''}</p>
-            </div>)}
-
-            {/* ── Visual Style ── */}
-            <div className="border border-zinc-800/60 rounded-lg p-2 mb-2 space-y-1.5">
-              <div className="flex justify-between mb-1"><span className="text-[6px] font-black uppercase text-zinc-600">Style</span><span className={`text-[5.5px] font-black tabular-nums ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>Trails {Math.round(cyTrails*100)}%</span></div>
-              <div className={dim(hasTrails)}><FSlider value={cyTrails} min={0} max={0.99} step={0.01} defaultVal={0.30} onChange={setCyTrails} color="#06b6d4" enabled={isCymatic}/></div>
-              <div className="flex justify-between mt-1"><span className="text-[5.5px] font-black uppercase text-zinc-600">Decay ⓘ</span><span className={`text-[5.5px] font-black tabular-nums ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{Math.round(cyDecay*100)}%</span></div>
-              <div className={dim(hasDecay)}><FSlider value={cyDecay} min={0} max={1} step={0.01} defaultVal={0} onChange={setCyDecay} color="#a78bfa" enabled={isCymatic}/></div>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                <div className={dim(hasBands)}>
-                  <div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Bands</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{cyFreqBands}</span></div>
-                  <div className="flex gap-0.5">{[1,2,3,4].map(n=>(<button key={n} onClick={()=>setCyFreqBands(n)} className={`flex-1 py-0.5 rounded border text-[6px] font-black transition-all ${cyFreqBands===n?(isCymatic?'bg-cyan-500 border-cyan-400 text-white':'bg-zinc-700 border-cyan-400/50 text-cyan-300'):'bg-zinc-900 border-zinc-700 text-zinc-500'}`}>{n}</button>))}</div>
-                </div>
-                <div className={dim(hasNoise)}>
-                  <div className="flex justify-between mb-0.5"><span className="text-[5.5px] font-black uppercase text-zinc-700">Noise</span><span className={`text-[5.5px] font-black ${isCymatic?'text-cyan-400':'text-zinc-600'}`}>{Math.round(cyNoise*100)}%</span></div>
-                  <FSlider value={cyNoise} min={0} max={1} step={0.01} defaultVal={0} onChange={setCyNoise} color="#06b6d4" enabled={isCymatic}/>
-                </div>
-              </div>
-              <div className="pt-1 border-t border-zinc-800/40">
-                <div className="flex items-center gap-1">
-                  <input type="color" value={cyColor} onChange={e=>setCyColor(e.target.value)} className="w-6 h-5 rounded cursor-pointer bg-zinc-900 border border-zinc-700 flex-shrink-0"/>
-                  {[['fixed','Fix'],['rainbow','RGB'],['spectrum','Spc'],['source','Src']].map(([val,lbl])=>(<button key={val} onClick={()=>setCyColorMode(val)} className={`flex-1 py-0.5 rounded border text-[5.5px] font-black uppercase transition-all ${cyColorMode===val?(isCymatic?'bg-cyan-500 border-cyan-400 text-white':'bg-zinc-800 border-cyan-400/50 text-cyan-300'):'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600'}`}>{lbl}</button>))}
-                </div>
-              </div>
-            </div>
-            </>);})()}
-          {/* Reset */}
-          <div className="pt-1">
-            <button onClick={()=>{setIsCymatic(false);stopAudio();setCyMode(0);setCyAmt(0.75);setCySmooth(0.72);setCySens(0.65);setCyColor('#00ffcc');setCyColorMode('fixed');setCyMirror(false);setCyFill(false);setCyGlow(true);setCyBlend('screen');setCyHideCanvas(false);setCyFreqLo(0);setCyFreqHi(1);setCyLissMode(0);setCyScopeDecay(0.85);setCyScopeLine(true);setCyRender('line');setCyAutoGain(true);setCyStereoWidth(0.5);setCyPhaseOff(0.25);setCyTrails(0.30);setCyScopeZoom(1.0);setCyScopeRot(0);setCySymLink(false);setCySymApply(false);setCyGridlines(false);setCyInvert(false);setCyXYSwap(false);setCyFreqBands(3);setCySpinRate(0);setCyWarpAmt(0);setCyNoise(0);setCyDecay(0);setCyFracStyle(0);setCyLiquidMode(0);setCyPrisLink(false);setCyFluxLink(false);cyPartsRef.current=[];cyWaterfallRef.current=[];cyAutoGainRef.current=1;cySpinRef.current=0;cyFabBassRef.current=0;cyFabRmsRef.current=0;cyFabTrebRef.current=0;cyFabMidRef.current=0;audModRef.current={zoom:0,rotation:0,postRotation:0,entropy:0,flux:0,chroma:0,glyph:0,vignette:0,prismatic:0,symPhase:0,smoke:0,trails:0,speed:0,bpm:0,flash:0,warpAmt:0,fieldAmt:0,glitchAmt:0,retroAmt:0};setAudPins(()=>{const m={};AUD_SOURCES.forEach(s=>{m[s]={};AUD_TARGETS.forEach(t=>{m[s][t]=false;});});return m;});setLfos([{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:1},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:2},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:4},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:8}]);setCyResetFlash(true);setTimeout(()=>setCyResetFlash(false),300);}}
-              disabled={cyAtDefaults}
-              className={`w-full py-1.5 rounded-xl border text-[7px] font-black uppercase tracking-widest transition-all ${cyResetFlash?'bg-cyan-900 border-cyan-800 text-cyan-300':!cyAtDefaults?'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600':'bg-zinc-900 border-zinc-800 text-zinc-700 opacity-40 cursor-not-allowed'}`}>RESET AUDIOFX</button>
-          </div>
+        {/* Reset */}
+        <div className="mt-2">
+          <button onClick={()=>{
+            stopAudio();
+            setScopeCards(prev=>prev.map(c=>({...c,enabled:false,flipped:false,blend:'screen',sens:0.65,smooth:0.5,intensity:0.75,glow:true})));
+            setAudPins(()=>{const m={};AUD_SOURCES.forEach(s=>{m[s]={};AUD_TARGETS.forEach(t=>{m[s][t]=false;});});return m;});
+            setLfos([{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:1},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:2},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:4},{enabled:false,rate:0.3,depth:0.7,shape:0,phase:0,bpmSync:false,bpmDiv:8}]);
+            setCyResetFlash(true); setTimeout(()=>setCyResetFlash(false),300);
+          }}
+            disabled={cyAtDefaults}
+            className={`w-full py-1.5 rounded-xl border text-[7px] font-black uppercase tracking-widest transition-all ${cyResetFlash?'bg-cyan-900 border-cyan-800 text-cyan-300':!cyAtDefaults?'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600':'bg-zinc-900 border-zinc-800 text-zinc-700 opacity-40 cursor-not-allowed'}`}>RESET AUDIOFX</button>
         </div>
 
       </div>
