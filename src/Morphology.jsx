@@ -5856,8 +5856,7 @@ export default function Morphology(){
     const motionLabel=['Static','Breath','Wave','Scatter','Orbit'][textMotion]||'—';
 
     return (
-    <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-4" style={{position:"relative"}}>
-      <SectionLabel accent="text-orange-400 border-orange-500/40 bg-orange-500/10">ENGINEFX</SectionLabel>
+    <div style={{position:"relative"}}>
 
       {(()=>{
         const moduleCards={
@@ -6935,8 +6934,7 @@ export default function Morphology(){
   const coreFX=(()=>{
 
     return(
-      <div className="bg-zinc-900/40 border border-zinc-700 rounded-2xl p-4">
-        <SectionLabel accent="text-zinc-300 border-zinc-500/40 bg-zinc-500/10">COREFX</SectionLabel>
+      <div>
         {/* Core morph param cards */}
         <div className="flex flex-wrap gap-2 mb-4 items-start">
           <CoreParamCard id="speed" label="Speed" value={duration} displayVal={duration>=1000?Math.round(duration/1000)+'s':duration+'ms'} min={300} max={30000} onChange={setDuration} title="Total morph duration" accentColor="#e4e4e7"/>
@@ -7292,6 +7290,8 @@ export default function Morphology(){
 
 
   // AudioFX collapsible state
+  const [engineExpanded,setEngineExpanded]=React.useState(true);
+  const [coreFxExpanded,setCoreFxExpanded]=React.useState(true);
   const [audioExpanded,setAudioExpanded]=React.useState(false);
 
   return(
@@ -7429,11 +7429,41 @@ export default function Morphology(){
           </div>
         )}
 
-        {/* ── ENGINE RACK ───────────────────────────────────────────────── */}
-        {engineFX}
+        {/* ── ENGINE RACK (collapsible) ──────────────────────────────────── */}
+        <div className="bg-zinc-900/40 border border-orange-900/40 rounded-2xl overflow-hidden">
+          <button onClick={()=>setEngineExpanded(v=>!v)}
+            className="w-full flex items-center gap-2 px-4 pt-3 pb-3 hover:bg-orange-950/10 transition-all"
+          >
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-sm border text-orange-400 border-orange-500/40 bg-orange-500/10 whitespace-nowrap">
+              ENGINEFX
+            </span>
+            <div className="flex-1 h-px bg-zinc-800"/>
+            <span className={`text-[8px] font-black tabular-nums ml-1 transition-colors ${engineExpanded?'text-orange-500':'text-zinc-600'}`}>{engineExpanded?'▲':'▼'}</span>
+          </button>
+          {engineExpanded&&(
+            <div className="border-t border-orange-900/40 px-4 pb-4">
+              {engineFX}
+            </div>
+          )}
+        </div>
 
-        {/* ── SIGNAL CHAIN (CoreFX) ─────────────────────────────────────── */}
-        {coreFX}
+        {/* ── SIGNAL CHAIN / CoreFX (collapsible) ────────────────────────── */}
+        <div className="bg-zinc-900/40 border border-zinc-700/40 rounded-2xl overflow-hidden">
+          <button onClick={()=>setCoreFxExpanded(v=>!v)}
+            className="w-full flex items-center gap-2 px-4 pt-3 pb-3 hover:bg-zinc-800/20 transition-all"
+          >
+            <span className="text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded-sm border text-zinc-300 border-zinc-500/40 bg-zinc-500/10 whitespace-nowrap">
+              COREFX
+            </span>
+            <div className="flex-1 h-px bg-zinc-800"/>
+            <span className={`text-[8px] font-black tabular-nums ml-1 transition-colors ${coreFxExpanded?'text-zinc-400':'text-zinc-600'}`}>{coreFxExpanded?'▲':'▼'}</span>
+          </button>
+          {coreFxExpanded&&(
+            <div className="border-t border-zinc-700/40 px-4 pb-4">
+              {coreFX}
+            </div>
+          )}
+        </div>
 
         {/* ── SIGNAL — full width audio meters, always mounted ────────────── */}
 
