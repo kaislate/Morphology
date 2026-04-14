@@ -3855,19 +3855,19 @@ export default function Morphology(){
       const hasAudio=audBusRef.current?.active;
       const bus=hasAudio?audBusRef.current:null;
 
-      // Generate synthetic demo data — very quiet, like near-silent input
+      // Generate synthetic demo data
       for(let i=0;i<demoN;i++){
         const f=i/demoN;
-        demoWfBuf[i]=Math.sin(f*Math.PI*4+tSec*0.7)*0.06
-                    +Math.sin(f*Math.PI*7+tSec*0.5)*0.03
-                    +Math.sin(f*Math.PI*13+tSec*0.3)*0.015;
+        demoWfBuf[i]=Math.sin(f*Math.PI*4+tSec*2)*0.3
+                    +Math.sin(f*Math.PI*7+tSec*3.1)*0.15
+                    +Math.sin(f*Math.PI*13+tSec*1.7)*0.08;
       }
       for(let i=0;i<128;i++){
-        demoSpBuf[i]=Math.max(0,(1-i/128)*25+Math.sin(i*0.3+tSec*0.4)*6+Math.sin(i*0.7+tSec*0.25)*3);
+        demoSpBuf[i]=Math.max(0,(1-i/128)*180+Math.sin(i*0.3+tSec*2)*40+Math.sin(i*0.7+tSec*1.3)*20);
       }
-      const demoBus={bass:0.04+Math.sin(tSec*0.3)*0.02,sub:0.02,low:0.03,
-        mid:0.03+Math.sin(tSec*0.4)*0.015,treble:0.02+Math.sin(tSec*0.5)*0.01,
-        rms:0.04+Math.sin(tSec*0.35)*0.015,beat:false,
+      const demoBus={bass:0.3+Math.sin(tSec*1.5)*0.15,sub:0.2,low:0.25,
+        mid:0.2+Math.sin(tSec*2.1)*0.1,treble:0.15+Math.sin(tSec*3)*0.08,
+        rms:0.25+Math.sin(tSec*1.8)*0.1,beat:false,
         spectrum:demoSpBuf,waveform:demoWfBuf,active:true};
 
       for(const card of cards){
