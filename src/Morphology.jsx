@@ -3871,11 +3871,42 @@ export default function Morphology(){
         spectrum:demoSpBuf,waveform:demoWfBuf,active:true};
 
       for(const card of cards){
-        // Enabled cards with real audio use real data; everything else uses demo
+        // Always blend demo baseline with real audio — demo is the activity floor
         const useReal=hasAudio&&card.enabled;
-        const useBus=useReal?bus:demoBus;
-        const useWf=useReal?bus.waveform:demoWfBuf;
-        const useSp=useReal?bus.spectrum:demoSpBuf;
+        const realWf=useReal?bus.waveform:null;
+        const realSp=useReal?bus.spectrum:null;
+
+        // Build blended waveform: max(|demo|, |real|) preserving sign of larger
+        if(!perCardSmWf._blend)perCardSmWf._blend={};
+        if(!perCardSmWf._blend[card.id])perCardSmWf._blend[card.id]=new Float32Array(demoN);
+        const blendWf=perCardSmWf._blend[card.id];
+        for(let i=0;i<demoN;i++){
+          const d=demoWfBuf[i];
+          const r=realWf&&i<realWf.length?realWf[i]:0;
+          blendWf[i]=Math.abs(r)>Math.abs(d)?r:d;
+        }
+
+        // Build blended spectrum: max(demo, real)
+        if(!perCardSmSp._blend)perCardSmSp._blend={};
+        if(!perCardSmSp._blend[card.id])perCardSmSp._blend[card.id]=new Float32Array(128);
+        const blendSp=perCardSmSp._blend[card.id];
+        for(let i=0;i<128;i++){
+          const d=demoSpBuf[i];
+          const r=realSp&&i<realSp.length?realSp[i]:0;
+          blendSp[i]=Math.max(d,r);
+        }
+
+        // Build blended bus: max of demo and real per field
+        const useBus=useReal?{
+          bass:Math.max(demoBus.bass,bus.bass||0),
+          sub:Math.max(demoBus.sub,bus.sub||0),
+          low:Math.max(demoBus.low,bus.low||0),
+          mid:Math.max(demoBus.mid,bus.mid||0),
+          treble:Math.max(demoBus.treble,bus.treble||0),
+          rms:Math.max(demoBus.rms,bus.rms||0),
+          beat:bus.beat,
+          spectrum:blendSp,waveform:blendWf,active:true,
+        }:demoBus;
 
         // Ensure per-card offscreen canvas
         if(!scopeCardCanvasRefs.current[card.id]){
@@ -3887,6 +3918,8 @@ export default function Morphology(){
         cardX.clearRect(0,0,D2,D2);
 
         // Smoothing buffers
+        const useWf=useReal?blendWf:demoWfBuf;
+        const useSp=useReal?blendSp:demoSpBuf;
         if(!perCardSmWf[card.id])perCardSmWf[card.id]=new Float32Array(useWf?.length||demoN);
         if(!perCardSmSp[card.id])perCardSmSp[card.id]=new Float32Array(useSp?.length||128);
         const smAlpha=Math.max(0.01,1-Math.min(0.99,card.smooth));
