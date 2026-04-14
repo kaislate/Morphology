@@ -3871,42 +3871,25 @@ export default function Morphology(){
         spectrum:demoSpBuf,waveform:demoWfBuf,active:true};
 
       for(const card of cards){
-        // Always blend demo baseline with real audio — demo is the activity floor
+        // No audio or card disabled → demo preview; audio + enabled → real with auto-gain
         const useReal=hasAudio&&card.enabled;
-        const realWf=useReal?bus.waveform:null;
-        const realSp=useReal?bus.spectrum:null;
 
-        // Build blended waveform: max(|demo|, |real|) preserving sign of larger
-        if(!perCardSmWf._blend)perCardSmWf._blend={};
-        if(!perCardSmWf._blend[card.id])perCardSmWf._blend[card.id]=new Float32Array(demoN);
-        const blendWf=perCardSmWf._blend[card.id];
-        for(let i=0;i<demoN;i++){
-          const d=demoWfBuf[i];
-          const r=realWf&&i<realWf.length?realWf[i]:0;
-          blendWf[i]=Math.abs(r)>Math.abs(d)?r:d;
+        // ── Auto-gain: track running peak, normalize quiet signals ──────
+        // Slow EMA tracks peak amplitude. Quiet audio gets boosted so traces
+        // are always visible. Capped at 12× to prevent noise amplification.
+        let autoGain=1;
+        if(useReal&&bus.waveform){
+          if(!scopeAutoGainRef.current[card.id])scopeAutoGainRef.current[card.id]=1;
+          const rawPeak=bus.waveform.reduce((mx,v)=>Math.max(mx,Math.abs(v)),0.0001);
+          const target=1/(rawPeak||0.0001);
+          scopeAutoGainRef.current[card.id]=scopeAutoGainRef.current[card.id]*0.985+Math.min(target,12)*0.015;
+          autoGain=scopeAutoGainRef.current[card.id];
         }
 
-        // Build blended spectrum: max(demo, real)
-        if(!perCardSmSp._blend)perCardSmSp._blend={};
-        if(!perCardSmSp._blend[card.id])perCardSmSp._blend[card.id]=new Float32Array(128);
-        const blendSp=perCardSmSp._blend[card.id];
-        for(let i=0;i<128;i++){
-          const d=demoSpBuf[i];
-          const r=realSp&&i<realSp.length?realSp[i]:0;
-          blendSp[i]=Math.max(d,r);
-        }
-
-        // Build blended bus: max of demo and real per field
-        const useBus=useReal?{
-          bass:Math.max(demoBus.bass,bus.bass||0),
-          sub:Math.max(demoBus.sub,bus.sub||0),
-          low:Math.max(demoBus.low,bus.low||0),
-          mid:Math.max(demoBus.mid,bus.mid||0),
-          treble:Math.max(demoBus.treble,bus.treble||0),
-          rms:Math.max(demoBus.rms,bus.rms||0),
-          beat:bus.beat,
-          spectrum:blendSp,waveform:blendWf,active:true,
-        }:demoBus;
+        // Select data source
+        const useWf=useReal?bus.waveform:demoWfBuf;
+        const useSp=useReal?bus.spectrum:demoSpBuf;
+        const useBus=useReal?bus:demoBus;
 
         // Ensure per-card offscreen canvas
         if(!scopeCardCanvasRefs.current[card.id]){
@@ -3918,18 +3901,29 @@ export default function Morphology(){
         cardX.clearRect(0,0,D2,D2);
 
         // Smoothing buffers
-        const useWf=useReal?blendWf:demoWfBuf;
-        const useSp=useReal?blendSp:demoSpBuf;
         if(!perCardSmWf[card.id])perCardSmWf[card.id]=new Float32Array(useWf?.length||demoN);
         if(!perCardSmSp[card.id])perCardSmSp[card.id]=new Float32Array(useSp?.length||128);
         const smAlpha=Math.max(0.01,1-Math.min(0.99,card.smooth));
         const smWf=perCardSmWf[card.id];
         const smSp=perCardSmSp[card.id];
-        if(useWf){for(let i=0;i<smWf.length&&i<useWf.length;i++)smWf[i]=smWf[i]*(1-smAlpha)+useWf[i]*smAlpha;}
+        // Apply auto-gain to waveform during smoothing
+        if(useWf){for(let i=0;i<smWf.length&&i<useWf.length;i++)smWf[i]=smWf[i]*(1-smAlpha)+(useWf[i]*autoGain)*smAlpha;}
         if(useSp){for(let i=0;i<smSp.length&&i<useSp.length;i++)smSp[i]=smSp[i]*(1-smAlpha)+useSp[i]*smAlpha;}
 
+        // Build draw bus — boost band levels by auto-gain (capped) for reactive modes
+        const gainBoost=useReal?Math.min(autoGain,4):1; // cap bus boost lower than waveform
+        const drawBus=useReal?{
+          ...bus,
+          bass:Math.min(1,(bus.bass||0)*gainBoost),
+          sub:Math.min(1,(bus.sub||0)*gainBoost),
+          low:Math.min(1,(bus.low||0)*gainBoost),
+          mid:Math.min(1,(bus.mid||0)*gainBoost),
+          treble:Math.min(1,(bus.treble||0)*gainBoost),
+          rms:Math.min(1,(bus.rms||0)*gainBoost),
+        }:useBus;
+
         // Draw
-        SCOPE_DRAW[card.id]?.(cardX,D2,D2,smWf,smSp,useBus,card,scopePersistRef,scopeParticlesRef,tSec*1000);
+        SCOPE_DRAW[card.id]?.(cardX,D2,D2,smWf,smSp,drawBus,card,scopePersistRef,scopeParticlesRef,tSec*1000);
 
         // Spin
         if(!scopeSpinRef.current[card.id])scopeSpinRef.current[card.id]=0;
@@ -4017,6 +4011,7 @@ export default function Morphology(){
   const scopeParticlesRef   = useRef({});
   const scopePersistRef     = useRef({});
   const scopeSpinRef        = useRef({});        // id → accumulated spin angle
+  const scopeAutoGainRef    = useRef({});        // id → running auto-gain scalar
   const scopeSymCanvasRef   = useRef({});        // id → symmetry output canvas
   const scopePreviewRafRef  = useRef(null);      // independent rAF for card previews
   const scopeTimeRef        = useRef(0);         // independent time accumulator for previews
