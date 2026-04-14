@@ -15,6 +15,7 @@ dist-ssr
 tobedeleted/
 OLD PA files/
 src.worktrees/
+.superpowers/
 
 # Editor directories and files
 .vscode/*
