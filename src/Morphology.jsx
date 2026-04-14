@@ -5207,11 +5207,37 @@ export default function Morphology(){
       ctx.globalCompositeOperation='copy';ctx.drawImage(postProcessCanvasRef.current,0,0);ctx.globalCompositeOperation='source-over';
     }
 
-    // ── Scope Cards: composite pipeline ──────────────────────────────────────
-    const activeCards=scopeCardsRef.current.filter(c=>c.enabled);
-    if(activeCards.length>0&&audBusRef.current.active){
-      const bus=audBusRef.current;
+    // ── Scope Cards: preview + composite pipeline ─────────────────────────────
+    // Preview: ALL cards render every frame (synthetic data when no audio)
+    // Composite: only enabled cards with real audio go onto the main canvas
+    {
+      const allCards=scopeCardsRef.current;
+      const hasAudio=audBusRef.current.active;
+      const bus=hasAudio?audBusRef.current:null;
       const D2=DIMENSION;
+      const tNow=timeRef.current;
+
+      // Synthetic demo data for preview when no audio connected
+      const demoN=512;
+      if(!scopeSmWfRefs.current._demo){
+        scopeSmWfRefs.current._demo=new Float32Array(demoN);
+        scopeSmSpRefs.current._demo=new Float32Array(128);
+      }
+      const demoWf=scopeSmWfRefs.current._demo;
+      const demoSp=scopeSmSpRefs.current._demo;
+      const demoT=tNow*0.001;
+      for(let i=0;i<demoN;i++){
+        const t2=i/demoN;
+        demoWf[i]=Math.sin(t2*Math.PI*4+demoT*2)*0.3
+                 +Math.sin(t2*Math.PI*7+demoT*3.1)*0.15
+                 +Math.sin(t2*Math.PI*13+demoT*1.7)*0.08;
+      }
+      for(let i=0;i<128;i++){
+        demoSp[i]=Math.max(0,(1-i/128)*180+Math.sin(i*0.3+demoT*2)*40+Math.sin(i*0.7+demoT*1.3)*20);
+      }
+      const demoBus={bass:0.3+Math.sin(demoT*1.5)*0.15,sub:0.2,low:0.25,mid:0.2+Math.sin(demoT*2.1)*0.1,
+        treble:0.15+Math.sin(demoT*3)*0.08,rms:0.25+Math.sin(demoT*1.8)*0.1,beat:false,
+        spectrum:demoSp,waveform:demoWf,active:true};
 
       if(!scopeOutputRef.current){
         const c=document.createElement('canvas');c.width=D2;c.height=D2;
@@ -5221,7 +5247,12 @@ export default function Morphology(){
       const outX=outC.getContext('2d');
       outX.clearRect(0,0,D2,D2);
 
-      for(const card of activeCards){
+      for(const card of allCards){
+        // Use real audio for enabled cards when available, otherwise demo data
+        const useBus=(hasAudio&&card.enabled)?bus:demoBus;
+        const useWf=hasAudio&&card.enabled?bus.waveform:demoWf;
+        const useSp=hasAudio&&card.enabled?bus.spectrum:demoSp;
+
         // Ensure per-card offscreen canvas
         if(!scopeCardCanvasRefs.current[card.id]){
           const c=document.createElement('canvas');c.width=D2;c.height=D2;
@@ -5233,21 +5264,21 @@ export default function Morphology(){
 
         // Ensure per-card smoothing buffers
         if(!scopeSmWfRefs.current[card.id]){
-          scopeSmWfRefs.current[card.id]=new Float32Array(bus.waveform?.length||2048);
+          scopeSmWfRefs.current[card.id]=new Float32Array(useWf?.length||demoN);
         }
         if(!scopeSmSpRefs.current[card.id]){
-          scopeSmSpRefs.current[card.id]=new Float32Array(bus.spectrum?.length||256);
+          scopeSmSpRefs.current[card.id]=new Float32Array(useSp?.length||128);
         }
 
         // Per-card JS smoothing (EMA)
         const smAlpha=Math.max(0.01,1-Math.min(0.99,card.smooth));
         const smWf=scopeSmWfRefs.current[card.id];
         const smSp=scopeSmSpRefs.current[card.id];
-        if(bus.waveform){for(let i=0;i<smWf.length&&i<bus.waveform.length;i++)smWf[i]=smWf[i]*(1-smAlpha)+bus.waveform[i]*smAlpha;}
-        if(bus.spectrum){for(let i=0;i<smSp.length&&i<bus.spectrum.length;i++)smSp[i]=smSp[i]*(1-smAlpha)+bus.spectrum[i]*smAlpha;}
+        if(useWf){for(let i=0;i<smWf.length&&i<useWf.length;i++)smWf[i]=smWf[i]*(1-smAlpha)+useWf[i]*smAlpha;}
+        if(useSp){for(let i=0;i<smSp.length&&i<useSp.length;i++)smSp[i]=smSp[i]*(1-smAlpha)+useSp[i]*smAlpha;}
 
         // Dispatch to per-mode draw function
-        SCOPE_DRAW[card.id]?.(cardX,D2,D2,smWf,smSp,bus,card,scopePersistRef,scopeParticlesRef,timeRef.current);
+        SCOPE_DRAW[card.id]?.(cardX,D2,D2,smWf,smSp,useBus,card,scopePersistRef,scopeParticlesRef,tNow);
 
         // ── Auto-spin accumulation ──────────────────────────────────────
         if(!scopeSpinRef.current[card.id])scopeSpinRef.current[card.id]=0;
@@ -5309,7 +5340,7 @@ export default function Morphology(){
           cardX.globalCompositeOperation='source-over';
         }
 
-        // Copy result to the card's display canvas (in React component)
+        // Copy result to the card's display canvas (ALWAYS — preview for all cards)
         const displayC=scopeDisplayCanvasRefs.current[card.id];
         if(displayC){
           const dX=displayC.getContext('2d');
@@ -5317,16 +5348,21 @@ export default function Morphology(){
           dX.drawImage(cardC,0,0,SCOPE_CARD_SIZE,SCOPE_CARD_SIZE);
         }
 
-        // Composite onto output canvas
-        outX.globalCompositeOperation=card.blend;
-        outX.drawImage(cardC,0,0,D2,D2);
+        // Composite onto main output canvas (only enabled cards with real audio)
+        if(card.enabled&&hasAudio){
+          outX.globalCompositeOperation=card.blend;
+          outX.drawImage(cardC,0,0,D2,D2);
+        }
       }
 
-      // Draw composite output onto main render canvas
-      ctx.save();
-      ctx.globalCompositeOperation='screen';
-      ctx.drawImage(outC,0,0,D2,D2);
-      ctx.restore();
+      // Draw composite output onto main render canvas (only if any enabled + audio)
+      const activeCards=allCards.filter(c=>c.enabled);
+      if(activeCards.length>0&&hasAudio){
+        ctx.save();
+        ctx.globalCompositeOperation='screen';
+        ctx.drawImage(outC,0,0,D2,D2);
+        ctx.restore();
+      }
     }
 
     // ── CoreFX: applied directly to visible canvas after blit ────────────────
