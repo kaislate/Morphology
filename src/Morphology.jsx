@@ -3415,74 +3415,102 @@ function ScopeCardBack({ card, onChange, onFlip }) {
 
 function ScopeCardControls({ card, onChange, col, enabled }) {
   const { id } = card;
+  const c=card.color;
 
-  const sl = (label, key, min, max, step, def) => (
-    <div key={key} style={{marginBottom:5}}>
-      <div style={{display:'flex',justifyContent:'space-between',marginBottom:2}}>
+  const sl = (label, key, min, max, step, def, fmt) => (
+    <div key={key} style={{marginBottom:4}}>
+      <div style={{display:'flex',justifyContent:'space-between',marginBottom:1}}>
         <span style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.1em',color:'#52525b'}}>{label}</span>
-        <span style={{fontSize:6,fontWeight:900,color:enabled?col:'#52525b',fontVariantNumeric:'tabular-nums'}}>{Math.round(card[key]*100)}%</span>
+        <span style={{fontSize:6,fontWeight:900,color:enabled?col:'#52525b',fontVariantNumeric:'tabular-nums'}}>{fmt?fmt(card[key]):Math.round(card[key]*100)+'%'}</span>
       </div>
       <FSlider value={card[key]} min={min} max={max} step={step} defaultVal={def}
-        onChange={v=>onChange({[key]:v})} color={card.color} enabled={enabled}/>
+        onChange={v=>onChange({[key]:v})} color={c} enabled={enabled}/>
     </div>
   );
 
   const tog = (label, key) => (
     <button key={key} onClick={()=>onChange({[key]:!card[key]})} style={{
-      flex:1,padding:'3px 0',borderRadius:5,fontSize:6,fontWeight:900,
+      flex:1,padding:'2px 0',borderRadius:4,fontSize:6,fontWeight:900,
       textTransform:'uppercase',cursor:'pointer',
-      background:card[key]?(enabled?`${card.color}22`:'rgba(60,60,60,0.2)'):'rgba(0,0,0,0.3)',
-      border:`1px solid ${card[key]?(enabled?card.color+'55':'#52525b'):'#3f3f46'}`,
-      color:card[key]?(enabled?card.color:'#a1a1aa'):'#52525b',
+      background:card[key]?(enabled?`${c}22`:'rgba(60,60,60,0.2)'):'rgba(0,0,0,0.3)',
+      border:`1px solid ${card[key]?(enabled?c+'55':'#52525b'):'#3f3f46'}`,
+      color:card[key]?(enabled?c:'#a1a1aa'):'#52525b',
     }}>{label}</button>
   );
 
-  const lineStyleRow = () => (
-    <div style={{marginBottom:5}}>
-      <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.1em',color:'#52525b',marginBottom:3}}>Line Style</div>
-      <div style={{display:'flex',gap:3}}>
-        {['line','thick','fill'].map(v=>(
-          <button key={v} onClick={()=>onChange({lineStyle:v})} style={{
+  const pillRow = (label, key, options) => (
+    <div style={{marginBottom:4}}>
+      <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.1em',color:'#52525b',marginBottom:2}}>{label}</div>
+      <div style={{display:'flex',gap:2}}>
+        {options.map(([val,lbl])=>(
+          <button key={val} onClick={()=>onChange({[key]:val})} style={{
             flex:1,padding:'2px 0',borderRadius:4,fontSize:6,fontWeight:900,textTransform:'uppercase',cursor:'pointer',
-            background:card.lineStyle===v?(enabled?`${card.color}22`:'rgba(60,60,60,0.2)'):'rgba(0,0,0,0.3)',
-            border:`1px solid ${card.lineStyle===v?(enabled?card.color+'55':'#52525b'):'#3f3f46'}`,
-            color:card.lineStyle===v?(enabled?card.color:'#a1a1aa'):'#52525b',
-          }}>{v}</button>
+            background:card[key]===val?(enabled?`${c}22`:'rgba(60,60,60,0.2)'):'rgba(0,0,0,0.3)',
+            border:`1px solid ${card[key]===val?(enabled?c+'55':'#52525b'):'#3f3f46'}`,
+            color:card[key]===val?(enabled?c:'#a1a1aa'):'#52525b',
+          }}>{lbl}</button>
         ))}
       </div>
     </div>
   );
 
+  const divider = <div style={{height:1,background:'#27272a',margin:'4px 0'}}/>;
+
+  // ── Per-mode signal controls ──────────────────────────────────────────
   const sharedSignal = <>
     {sl('Sensitivity','sens',0.1,2,0.01,0.65)}
     {sl('Smooth','smooth',0,0.97,0.01,0.5)}
     {sl('Intensity','intensity',0,1,0.01,0.75)}
   </>;
 
-  const glowToggle = <div style={{display:'flex',gap:3,marginBottom:5}}>{tog('Glow','glow')}</div>;
-
-  if (id === 'vscope' || id === 'polar') return <>{sharedSignal}{lineStyleRow()}<div style={{display:'flex',gap:3,marginBottom:5}}>{tog('Mirror','mirror')}{tog('Glow','glow')}</div></>;
-  if (id === 'wave3d') return <>{sharedSignal}{sl('Depth','depth',0,1,0.01,0.5)}<div style={{display:'flex',gap:3,marginBottom:5}}>{tog('Grid','grid')}{tog('Glow','glow')}</div></>;
-  if (id === 'phosphor') return <>{sharedSignal}{sl('Persistence','persistence',0,0.99,0.01,0.7)}{sl('Glow Amt','glowAmt',0,1,0.01,0.8)}{glowToggle}</>;
-  if (id === 'spectral') return <>{sharedSignal}{sl('Orbit Speed','orbitSpeed',0,1,0.01,0.5)}{sl('Trail Length','trailLen',0,0.99,0.01,0.5)}{sl('Freq Lo','freqLo',0,1,0.01,0)}{sl('Freq Hi','freqHi',0,1,0.01,1)}{glowToggle}</>;
-  if (id === 'particles') return <>{sharedSignal}{sl('Count','count',0,1,0.01,0.5)}{sl('Size','size',0,1,0.01,0.5)}{sl('Decay','decay',0,1,0.01,0.5)}{glowToggle}</>;
-  if (id === 'diff') return <>{sharedSignal}{lineStyleRow()}<div style={{display:'flex',gap:3,marginBottom:5}}>{tog('Invert','invert')}{tog('Glow','glow')}</div></>;
-  if (id === 'fractal') {
-    return <>{sharedSignal}{sl('Iterations','iterations',0,1,0.01,0.5)}
-      <div style={{marginBottom:5}}>
-        <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',color:'#52525b',marginBottom:3}}>Style</div>
-        <div style={{display:'flex',gap:3}}>{[0,1,2,3,4].map(n=>(
-          <button key={n} onClick={()=>onChange({fracStyle:n})} style={{flex:1,padding:'2px 0',borderRadius:4,fontSize:7,fontWeight:900,cursor:'pointer',
-            background:card.fracStyle===n?(enabled?`${card.color}22`:'rgba(60,60,60,0.2)'):'rgba(0,0,0,0.3)',
-            border:`1px solid ${card.fracStyle===n?(enabled?card.color+'55':'#52525b'):'#3f3f46'}`,
-            color:card.fracStyle===n?(enabled?card.color:'#a1a1aa'):'#52525b',
-          }}>{n+1}</button>
-        ))}</div>
-      </div>{glowToggle}</>;
+  let modeControls;
+  if (id === 'vscope' || id === 'polar') {
+    modeControls = <>{sharedSignal}{pillRow('Line',  'lineStyle',[['line','Line'],['thick','Thick'],['fill','Fill']])}<div style={{display:'flex',gap:2,marginBottom:4}}>{tog('Mirror','mirror')}</div></>;
+  } else if (id === 'wave3d') {
+    modeControls = <>{sharedSignal}{sl('Depth','depth',0,1,0.01,0.5)}<div style={{display:'flex',gap:2,marginBottom:4}}>{tog('Grid','grid')}</div></>;
+  } else if (id === 'phosphor') {
+    modeControls = <>{sharedSignal}{sl('Persistence','persistence',0,0.99,0.01,0.7)}</>;
+  } else if (id === 'spectral') {
+    modeControls = <>{sharedSignal}{sl('Orbit Speed','orbitSpeed',0,1,0.01,0.5)}{sl('Trail Len','trailLen',0,0.99,0.01,0.5)}{sl('Freq Lo','freqLo',0,1,0.01,0)}{sl('Freq Hi','freqHi',0,1,0.01,1)}</>;
+  } else if (id === 'particles') {
+    modeControls = <>{sharedSignal}{sl('Count','count',0,1,0.01,0.5)}{sl('Size','size',0,1,0.01,0.5)}{sl('Decay','decay',0,1,0.01,0.5)}</>;
+  } else if (id === 'diff') {
+    modeControls = <>{sharedSignal}{pillRow('Line','lineStyle',[['line','Line'],['thick','Thick'],['fill','Fill']])}</>;
+  } else if (id === 'fractal') {
+    modeControls = <>{sharedSignal}{sl('Iterations','iterations',0,1,0.01,0.5)}{pillRow('Style','fracStyle',[[0,'Tree'],[1,'Coral'],[2,'Mndla'],[3,'Web'],[4,'Flake']])}</>;
+  } else if (id === 'neural') {
+    modeControls = <>{sharedSignal}{sl('Node Size','nodeSize',0,1,0.01,0.5)}{sl('Edge Opacity','edgeOpacity',0,1,0.01,0.5)}</>;
+  } else if (id === 'shard') {
+    modeControls = <>{sharedSignal}{sl('Shard Count','shardCount',0,1,0.01,0.5)}</>;
+  } else {
+    modeControls = sharedSignal;
   }
-  if (id === 'neural') return <>{sharedSignal}{sl('Node Size','nodeSize',0,1,0.01,0.5)}{sl('Edge Opacity','edgeOpacity',0,1,0.01,0.5)}{glowToggle}</>;
-  if (id === 'shard') return <>{sharedSignal}{sl('Shard Count','shardCount',0,1,0.01,0.5)}<div style={{display:'flex',gap:3,marginBottom:5}}>{tog('Invert','invert')}{tog('Glow','glow')}</div></>;
-  return sharedSignal;
+
+  // ── Style section (all modes) ─────────────────────────────────────────
+  const styleSection = <>
+    {divider}
+    <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.15em',color:'#52525b',marginBottom:3}}>Style</div>
+    {sl('Trails','trails',0,0.99,0.01,0.30)}
+    {sl('Glow Amt','glowAmt',0,1,0.01,0.5)}
+    {sl('Zoom','zoom',0.2,4,0.01,1,v=>v.toFixed(2)+'×')}
+    {sl('Spin','spin',0,1,0.01,0)}
+    <div style={{display:'flex',gap:2,marginBottom:4}}>
+      {tog('Glow','glow')}{tog('Grid','gridlines')}{tog('Invert','invert')}
+    </div>
+    {pillRow('Color','colorMode',[['fixed','Fix'],['rainbow','RGB'],['spectrum','Spc']])}
+  </>;
+
+  // ── Engine Links section (all modes) ──────────────────────────────────
+  const engineSection = <>
+    {divider}
+    <div style={{fontSize:6,fontWeight:900,textTransform:'uppercase',letterSpacing:'0.15em',color:'#52525b',marginBottom:3}}>Engine Links</div>
+    <div style={{display:'flex',gap:2,marginBottom:4}}>
+      {tog('Eng Xform','engXform')}{tog('Symmetry','engSym')}
+    </div>
+    {card.engSym && <div style={{display:'flex',gap:2,marginBottom:4}}>{tog('Hide Src','engSymHide')}</div>}
+  </>;
+
+  return <>{modeControls}{styleSection}{engineSection}</>;
 }
 
 function SplashScreen({onDone}){
@@ -5220,6 +5248,66 @@ export default function Morphology(){
 
         // Dispatch to per-mode draw function
         SCOPE_DRAW[card.id]?.(cardX,D2,D2,smWf,smSp,bus,card,scopePersistRef,scopeParticlesRef,timeRef.current);
+
+        // ── Auto-spin accumulation ──────────────────────────────────────
+        if(!scopeSpinRef.current[card.id])scopeSpinRef.current[card.id]=0;
+        if(card.spin>0)scopeSpinRef.current[card.id]=(scopeSpinRef.current[card.id]+(card.spin*0.002))%(Math.PI*2);
+        const cardSpin=scopeSpinRef.current[card.id];
+
+        // ── Engine Xform link: inherit engine zoom + rotation ───────────
+        const engRot=card.engXform?rotationAngleRef.current:0;
+        const engZoom=card.engXform?rcZ:1;
+        const totalCardRot=cardSpin+engRot;
+        const needsXform=Math.abs(totalCardRot)>0.0001||Math.abs(engZoom-1)>0.01;
+
+        // Apply spin/xform as canvas transform on cardC
+        if(needsXform){
+          const tmpC=document.createElement('canvas');tmpC.width=D2;tmpC.height=D2;
+          const tmpX=tmpC.getContext('2d');
+          tmpX.save();
+          tmpX.translate(D2/2,D2/2);
+          if(Math.abs(totalCardRot)>0.0001)tmpX.rotate(totalCardRot);
+          if(Math.abs(engZoom-1)>0.01)tmpX.scale(engZoom,engZoom);
+          tmpX.translate(-D2/2,-D2/2);
+          tmpX.drawImage(cardC,0,0);
+          tmpX.restore();
+          cardX.clearRect(0,0,D2,D2);
+          cardX.drawImage(tmpC,0,0);
+        }
+
+        // ── Engine Symmetry link: N-fold copies ─────────────────────────
+        if(card.engSym&&rc.isSymmetry){
+          const sType=rc.symmetryType||1;
+          const nFold=sType===1?2:sType===2?2:sType===3?3:sType===4?4:sType===5?3:sType===6?6:sType===7?8:sType===8?12:sType===9?6:sType===10?8:4;
+          if(!scopeSymCanvasRef.current[card.id]){
+            const c=document.createElement('canvas');c.width=D2;c.height=D2;
+            scopeSymCanvasRef.current[card.id]=c;
+          }
+          const symC=scopeSymCanvasRef.current[card.id];
+          const sX=symC.getContext('2d');
+          sX.clearRect(0,0,D2,D2);
+          if(sType===1){
+            sX.save();sX.translate(D2,0);sX.scale(-1,1);sX.drawImage(cardC,0,0);sX.restore();
+          }else if(sType===2){
+            sX.save();sX.translate(0,D2);sX.scale(1,-1);sX.drawImage(cardC,0,0);sX.restore();
+          }else{
+            for(let i=1;i<nFold;i++){
+              const angle=(Math.PI*2/nFold)*i;
+              sX.save();sX.globalCompositeOperation=i===1?'source-over':'screen';
+              sX.translate(D2/2,D2/2);sX.rotate(angle);sX.translate(-D2/2,-D2/2);
+              sX.drawImage(cardC,0,0);sX.restore();
+            }
+          }
+          // Composite: source + symmetry copies
+          if(!card.engSymHide){
+            // Draw source underneath
+            cardX.globalCompositeOperation='source-over';
+          }else{
+            cardX.clearRect(0,0,D2,D2);
+          }
+          cardX.drawImage(symC,0,0);
+          cardX.globalCompositeOperation='source-over';
+        }
 
         // Copy result to the card's display canvas (in React component)
         const displayC=scopeDisplayCanvasRefs.current[card.id];
