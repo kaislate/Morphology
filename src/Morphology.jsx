@@ -3304,7 +3304,7 @@ function ScopeCard({ card, canvasRefCallback, onToggle, onFlip, setScopeCard }) 
         width={SCOPE_CARD_SIZE} height={SCOPE_CARD_SIZE}
         style={{
           position:'absolute', inset:0, width:'100%', height:'100%',
-          opacity: enabled ? 1 : 0.18,
+          opacity: enabled ? 1 : 0.35,
           display: flipped ? 'none' : 'block',
         }}
       />
@@ -3833,6 +3833,89 @@ export default function Morphology(){
   const recCycleCountRef=useRef(0);
   const symAnimAngleRef=useRef(0);
 
+  // ── Scope Card Preview Loop (independent rAF — runs from mount) ───────────────
+  useEffect(()=>{
+    let running=true;
+    let lastT=0;
+    const D2=DIMENSION;
+    const demoN=512;
+    const demoWfBuf=new Float32Array(demoN);
+    const demoSpBuf=new Float32Array(128);
+    const perCardSmWf={};
+    const perCardSmSp={};
+
+    const tick=(now)=>{
+      if(!running)return;
+      const dt=lastT?Math.min(now-lastT,100):16;
+      lastT=now;
+      scopeTimeRef.current+=dt*0.001;
+      const tSec=scopeTimeRef.current;
+
+      const cards=scopeCardsRef.current;
+      const hasAudio=audBusRef.current?.active;
+      const bus=hasAudio?audBusRef.current:null;
+
+      // Generate synthetic demo data
+      for(let i=0;i<demoN;i++){
+        const f=i/demoN;
+        demoWfBuf[i]=Math.sin(f*Math.PI*4+tSec*2)*0.3
+                    +Math.sin(f*Math.PI*7+tSec*3.1)*0.15
+                    +Math.sin(f*Math.PI*13+tSec*1.7)*0.08;
+      }
+      for(let i=0;i<128;i++){
+        demoSpBuf[i]=Math.max(0,(1-i/128)*180+Math.sin(i*0.3+tSec*2)*40+Math.sin(i*0.7+tSec*1.3)*20);
+      }
+      const demoBus={bass:0.3+Math.sin(tSec*1.5)*0.15,sub:0.2,low:0.25,
+        mid:0.2+Math.sin(tSec*2.1)*0.1,treble:0.15+Math.sin(tSec*3)*0.08,
+        rms:0.25+Math.sin(tSec*1.8)*0.1,beat:false,
+        spectrum:demoSpBuf,waveform:demoWfBuf,active:true};
+
+      for(const card of cards){
+        // Enabled cards with real audio use real data; everything else uses demo
+        const useReal=hasAudio&&card.enabled;
+        const useBus=useReal?bus:demoBus;
+        const useWf=useReal?bus.waveform:demoWfBuf;
+        const useSp=useReal?bus.spectrum:demoSpBuf;
+
+        // Ensure per-card offscreen canvas
+        if(!scopeCardCanvasRefs.current[card.id]){
+          const c=document.createElement('canvas');c.width=D2;c.height=D2;
+          scopeCardCanvasRefs.current[card.id]=c;
+        }
+        const cardC=scopeCardCanvasRefs.current[card.id];
+        const cardX=cardC.getContext('2d');
+        cardX.clearRect(0,0,D2,D2);
+
+        // Smoothing buffers
+        if(!perCardSmWf[card.id])perCardSmWf[card.id]=new Float32Array(useWf?.length||demoN);
+        if(!perCardSmSp[card.id])perCardSmSp[card.id]=new Float32Array(useSp?.length||128);
+        const smAlpha=Math.max(0.01,1-Math.min(0.99,card.smooth));
+        const smWf=perCardSmWf[card.id];
+        const smSp=perCardSmSp[card.id];
+        if(useWf){for(let i=0;i<smWf.length&&i<useWf.length;i++)smWf[i]=smWf[i]*(1-smAlpha)+useWf[i]*smAlpha;}
+        if(useSp){for(let i=0;i<smSp.length&&i<useSp.length;i++)smSp[i]=smSp[i]*(1-smAlpha)+useSp[i]*smAlpha;}
+
+        // Draw
+        SCOPE_DRAW[card.id]?.(cardX,D2,D2,smWf,smSp,useBus,card,scopePersistRef,scopeParticlesRef,tSec*1000);
+
+        // Spin
+        if(!scopeSpinRef.current[card.id])scopeSpinRef.current[card.id]=0;
+        if(card.spin>0)scopeSpinRef.current[card.id]=(scopeSpinRef.current[card.id]+(card.spin*0.002))%(Math.PI*2);
+
+        // Copy to display canvas
+        const displayC=scopeDisplayCanvasRefs.current[card.id];
+        if(displayC){
+          const dX=displayC.getContext('2d');
+          dX.clearRect(0,0,SCOPE_CARD_SIZE,SCOPE_CARD_SIZE);
+          dX.drawImage(cardC,0,0,SCOPE_CARD_SIZE,SCOPE_CARD_SIZE);
+        }
+      }
+      scopePreviewRafRef.current=requestAnimationFrame(tick);
+    };
+    scopePreviewRafRef.current=requestAnimationFrame(tick);
+    return()=>{running=false;if(scopePreviewRafRef.current)cancelAnimationFrame(scopePreviewRafRef.current);};
+  },[]);
+
   // ── Audio Engine ──────────────────────────────────────────────────────────────
   // Single shared "audio bus" — written once per rAF tick, read by renderFrame & routing
   const audioCtxRef    = useRef(null);
@@ -3902,6 +3985,8 @@ export default function Morphology(){
   const scopePersistRef     = useRef({});
   const scopeSpinRef        = useRef({});        // id → accumulated spin angle
   const scopeSymCanvasRef   = useRef({});        // id → symmetry output canvas
+  const scopePreviewRafRef  = useRef(null);      // independent rAF for card previews
+  const scopeTimeRef        = useRef(0);         // independent time accumulator for previews
 
   // ── Pin Matrix: audPins[source][target] = true/false ─────────────────────────
   // Sources: bass mid treble peak rms beat lufs lfo1 lfo2 lfo3 lfo4
@@ -5207,157 +5292,74 @@ export default function Morphology(){
       ctx.globalCompositeOperation='copy';ctx.drawImage(postProcessCanvasRef.current,0,0);ctx.globalCompositeOperation='source-over';
     }
 
-    // ── Scope Cards: preview + composite pipeline ─────────────────────────────
-    // Preview: ALL cards render every frame (synthetic data when no audio)
-    // Composite: only enabled cards with real audio go onto the main canvas
+    // ── Scope Cards: composite onto main canvas ────────────────────────────────
+    // Card preview rendering runs in an independent rAF loop (always-on from mount).
+    // Here we only composite enabled cards with real audio onto the morph canvas.
     {
-      const allCards=scopeCardsRef.current;
-      const hasAudio=audBusRef.current.active;
-      const bus=hasAudio?audBusRef.current:null;
-      const D2=DIMENSION;
-      const tNow=timeRef.current;
-
-      // Synthetic demo data for preview when no audio connected
-      const demoN=512;
-      if(!scopeSmWfRefs.current._demo){
-        scopeSmWfRefs.current._demo=new Float32Array(demoN);
-        scopeSmSpRefs.current._demo=new Float32Array(128);
-      }
-      const demoWf=scopeSmWfRefs.current._demo;
-      const demoSp=scopeSmSpRefs.current._demo;
-      const demoT=tNow*0.001;
-      for(let i=0;i<demoN;i++){
-        const t2=i/demoN;
-        demoWf[i]=Math.sin(t2*Math.PI*4+demoT*2)*0.3
-                 +Math.sin(t2*Math.PI*7+demoT*3.1)*0.15
-                 +Math.sin(t2*Math.PI*13+demoT*1.7)*0.08;
-      }
-      for(let i=0;i<128;i++){
-        demoSp[i]=Math.max(0,(1-i/128)*180+Math.sin(i*0.3+demoT*2)*40+Math.sin(i*0.7+demoT*1.3)*20);
-      }
-      const demoBus={bass:0.3+Math.sin(demoT*1.5)*0.15,sub:0.2,low:0.25,mid:0.2+Math.sin(demoT*2.1)*0.1,
-        treble:0.15+Math.sin(demoT*3)*0.08,rms:0.25+Math.sin(demoT*1.8)*0.1,beat:false,
-        spectrum:demoSp,waveform:demoWf,active:true};
-
-      if(!scopeOutputRef.current){
-        const c=document.createElement('canvas');c.width=D2;c.height=D2;
-        scopeOutputRef.current=c;
-      }
-      const outC=scopeOutputRef.current;
-      const outX=outC.getContext('2d');
-      outX.clearRect(0,0,D2,D2);
-
-      for(const card of allCards){
-        // Use real audio for enabled cards when available, otherwise demo data
-        const useBus=(hasAudio&&card.enabled)?bus:demoBus;
-        const useWf=hasAudio&&card.enabled?bus.waveform:demoWf;
-        const useSp=hasAudio&&card.enabled?bus.spectrum:demoSp;
-
-        // Ensure per-card offscreen canvas
-        if(!scopeCardCanvasRefs.current[card.id]){
+      const activeCards=scopeCardsRef.current.filter(c=>c.enabled);
+      if(activeCards.length>0&&audBusRef.current.active){
+        const D2=DIMENSION;
+        if(!scopeOutputRef.current){
           const c=document.createElement('canvas');c.width=D2;c.height=D2;
-          scopeCardCanvasRefs.current[card.id]=c;
+          scopeOutputRef.current=c;
         }
-        const cardC=scopeCardCanvasRefs.current[card.id];
-        const cardX=cardC.getContext('2d');
-        cardX.clearRect(0,0,D2,D2);
+        const outC=scopeOutputRef.current;
+        const outX=outC.getContext('2d');
+        outX.clearRect(0,0,D2,D2);
 
-        // Ensure per-card smoothing buffers
-        if(!scopeSmWfRefs.current[card.id]){
-          scopeSmWfRefs.current[card.id]=new Float32Array(useWf?.length||demoN);
-        }
-        if(!scopeSmSpRefs.current[card.id]){
-          scopeSmSpRefs.current[card.id]=new Float32Array(useSp?.length||128);
-        }
+        for(const card of activeCards){
+          const cardC=scopeCardCanvasRefs.current[card.id];
+          if(!cardC)continue;
 
-        // Per-card JS smoothing (EMA)
-        const smAlpha=Math.max(0.01,1-Math.min(0.99,card.smooth));
-        const smWf=scopeSmWfRefs.current[card.id];
-        const smSp=scopeSmSpRefs.current[card.id];
-        if(useWf){for(let i=0;i<smWf.length&&i<useWf.length;i++)smWf[i]=smWf[i]*(1-smAlpha)+useWf[i]*smAlpha;}
-        if(useSp){for(let i=0;i<smSp.length&&i<useSp.length;i++)smSp[i]=smSp[i]*(1-smAlpha)+useSp[i]*smAlpha;}
+          // ── Engine Xform link ─────────────────────────────────────────
+          const cardSpin=scopeSpinRef.current[card.id]||0;
+          const engRot=card.engXform?rotationAngleRef.current:0;
+          const engZoom=card.engXform?rcZ:1;
+          const totalCardRot=cardSpin+engRot;
+          const needsXform=Math.abs(totalCardRot)>0.0001||Math.abs(engZoom-1)>0.01;
 
-        // Dispatch to per-mode draw function
-        SCOPE_DRAW[card.id]?.(cardX,D2,D2,smWf,smSp,useBus,card,scopePersistRef,scopeParticlesRef,tNow);
-
-        // ── Auto-spin accumulation ──────────────────────────────────────
-        if(!scopeSpinRef.current[card.id])scopeSpinRef.current[card.id]=0;
-        if(card.spin>0)scopeSpinRef.current[card.id]=(scopeSpinRef.current[card.id]+(card.spin*0.002))%(Math.PI*2);
-        const cardSpin=scopeSpinRef.current[card.id];
-
-        // ── Engine Xform link: inherit engine zoom + rotation ───────────
-        const engRot=card.engXform?rotationAngleRef.current:0;
-        const engZoom=card.engXform?rcZ:1;
-        const totalCardRot=cardSpin+engRot;
-        const needsXform=Math.abs(totalCardRot)>0.0001||Math.abs(engZoom-1)>0.01;
-
-        // Apply spin/xform as canvas transform on cardC
-        if(needsXform){
-          const tmpC=document.createElement('canvas');tmpC.width=D2;tmpC.height=D2;
-          const tmpX=tmpC.getContext('2d');
-          tmpX.save();
-          tmpX.translate(D2/2,D2/2);
-          if(Math.abs(totalCardRot)>0.0001)tmpX.rotate(totalCardRot);
-          if(Math.abs(engZoom-1)>0.01)tmpX.scale(engZoom,engZoom);
-          tmpX.translate(-D2/2,-D2/2);
-          tmpX.drawImage(cardC,0,0);
-          tmpX.restore();
-          cardX.clearRect(0,0,D2,D2);
-          cardX.drawImage(tmpC,0,0);
-        }
-
-        // ── Engine Symmetry link: N-fold copies ─────────────────────────
-        if(card.engSym&&rc.isSymmetry){
-          const sType=rc.symmetryType||1;
-          const nFold=sType===1?2:sType===2?2:sType===3?3:sType===4?4:sType===5?3:sType===6?6:sType===7?8:sType===8?12:sType===9?6:sType===10?8:4;
-          if(!scopeSymCanvasRef.current[card.id]){
-            const c=document.createElement('canvas');c.width=D2;c.height=D2;
-            scopeSymCanvasRef.current[card.id]=c;
+          let srcC=cardC;
+          if(needsXform){
+            const tmpC=document.createElement('canvas');tmpC.width=D2;tmpC.height=D2;
+            const tmpX=tmpC.getContext('2d');
+            tmpX.save();tmpX.translate(D2/2,D2/2);
+            if(Math.abs(totalCardRot)>0.0001)tmpX.rotate(totalCardRot);
+            if(Math.abs(engZoom-1)>0.01)tmpX.scale(engZoom,engZoom);
+            tmpX.translate(-D2/2,-D2/2);tmpX.drawImage(cardC,0,0);tmpX.restore();
+            srcC=tmpC;
           }
-          const symC=scopeSymCanvasRef.current[card.id];
-          const sX=symC.getContext('2d');
-          sX.clearRect(0,0,D2,D2);
-          if(sType===1){
-            sX.save();sX.translate(D2,0);sX.scale(-1,1);sX.drawImage(cardC,0,0);sX.restore();
-          }else if(sType===2){
-            sX.save();sX.translate(0,D2);sX.scale(1,-1);sX.drawImage(cardC,0,0);sX.restore();
-          }else{
-            for(let i=1;i<nFold;i++){
-              const angle=(Math.PI*2/nFold)*i;
-              sX.save();sX.globalCompositeOperation=i===1?'source-over':'screen';
-              sX.translate(D2/2,D2/2);sX.rotate(angle);sX.translate(-D2/2,-D2/2);
-              sX.drawImage(cardC,0,0);sX.restore();
+
+          // ── Engine Symmetry link ──────────────────────────────────────
+          if(card.engSym&&rc.isSymmetry){
+            const sType=rc.symmetryType||1;
+            const nFold=sType===1?2:sType===2?2:sType===3?3:sType===4?4:sType===5?3:sType===6?6:sType===7?8:sType===8?12:sType===9?6:sType===10?8:4;
+            if(!scopeSymCanvasRef.current[card.id]){
+              const c2=document.createElement('canvas');c2.width=D2;c2.height=D2;
+              scopeSymCanvasRef.current[card.id]=c2;
             }
+            const symC=scopeSymCanvasRef.current[card.id];
+            const sX=symC.getContext('2d');
+            sX.clearRect(0,0,D2,D2);
+            if(!card.engSymHide)sX.drawImage(srcC,0,0);
+            if(sType===1){
+              sX.save();sX.translate(D2,0);sX.scale(-1,1);sX.drawImage(srcC,0,0);sX.restore();
+            }else if(sType===2){
+              sX.save();sX.translate(0,D2);sX.scale(1,-1);sX.drawImage(srcC,0,0);sX.restore();
+            }else{
+              for(let i=1;i<nFold;i++){
+                const angle=(Math.PI*2/nFold)*i;
+                sX.save();sX.globalCompositeOperation='screen';
+                sX.translate(D2/2,D2/2);sX.rotate(angle);sX.translate(-D2/2,-D2/2);
+                sX.drawImage(srcC,0,0);sX.restore();
+              }
+            }
+            srcC=symC;
           }
-          // Composite: source + symmetry copies
-          if(!card.engSymHide){
-            // Draw source underneath
-            cardX.globalCompositeOperation='source-over';
-          }else{
-            cardX.clearRect(0,0,D2,D2);
-          }
-          cardX.drawImage(symC,0,0);
-          cardX.globalCompositeOperation='source-over';
-        }
 
-        // Copy result to the card's display canvas (ALWAYS — preview for all cards)
-        const displayC=scopeDisplayCanvasRefs.current[card.id];
-        if(displayC){
-          const dX=displayC.getContext('2d');
-          dX.clearRect(0,0,SCOPE_CARD_SIZE,SCOPE_CARD_SIZE);
-          dX.drawImage(cardC,0,0,SCOPE_CARD_SIZE,SCOPE_CARD_SIZE);
-        }
-
-        // Composite onto main output canvas (only enabled cards with real audio)
-        if(card.enabled&&hasAudio){
           outX.globalCompositeOperation=card.blend;
-          outX.drawImage(cardC,0,0,D2,D2);
+          outX.drawImage(srcC,0,0,D2,D2);
         }
-      }
 
-      // Draw composite output onto main render canvas (only if any enabled + audio)
-      const activeCards=allCards.filter(c=>c.enabled);
-      if(activeCards.length>0&&hasAudio){
         ctx.save();
         ctx.globalCompositeOperation='screen';
         ctx.drawImage(outC,0,0,D2,D2);
