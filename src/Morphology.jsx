@@ -7333,7 +7333,7 @@ export default function Morphology(){
             <div className="w-px h-6 bg-zinc-800"/>
             <div className="text-right leading-none">
               <div className="pre-beta-shine text-[10px] font-black uppercase tracking-wider">PRE-BETA</div>
-              <div className="text-[11px] font-black text-zinc-500 tracking-tight">Build 855</div>
+              <div className="text-[11px] font-black text-zinc-500 tracking-tight">Build 856</div>
             </div>
           </div>
         </div>
